@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>监护面板 · 智能护理病床</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.88em' font-size='90'>⚕</text></svg>">
+</head>
+
+<body>
+    <nav class="navbar scrolled">
+        <a href="/" class="navbar-brand"><div class="mark">NB</div>智能护理病床</a>
+        <div class="navbar-user">
+            <span id="nav-alert-badge"
+                style="background:var(--danger);color:#fff;padding:2px 10px;border-radius:var(--r-full);font-size:.72rem;font-weight:600;display:none;cursor:pointer"
+                onclick="location.href='alerts.html'"></span>
+            <span id="nav-username" style="font-weight:500;font-size:.85rem;color:var(--ash)"></span>
+            <div class="navbar-avatar" id="nav-avatar"></div>
+            <button class="btn btn-outline btn-sm" onclick="logout()">退出</button>
+        </div>
+    </nav>
+
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <div class="s-label">监护</div>
+                <nav class="sidebar-nav">
+                    <a href="dashboard.html" class="active"><span class="nav-icon">◉</span> 监护面板</a>
+                    <a href="reports.html"><span class="nav-icon">◈</span> 体检报告</a>
+                    <a href="records.html"><span class="nav-icon">◆</span> 病历档案</a>
+                    <a href="alerts.html"><span class="nav-icon">△</span> 预警管理</a>
+                    <a href="reminders.html"><span class="nav-icon">⏰</span> 智能提醒</a>
+                </nav>
+            </div>
+            <div class="sidebar-section">
+                <div class="s-label">智能</div>
+                <nav class="sidebar-nav">
+                    <a href="ai-chat.html"><span class="nav-icon">⬢</span> AI 护理咨询</a>
+                    <a href="digital-twin.html"><span class="nav-icon">🔮</span> 数字孪生</a>
+                    <a href="voice-chat.html"><span class="nav-icon">🎙</span> 语音陪聊</a>
+                    <a href="family-concerns.html"><span class="nav-icon">💝</span> 患者关注</a>
+                </nav>
+            </div>
+            <div class="sidebar-section" id="admin-nav" style="display:none">
+                <div class="s-label">管理</div>
+                <nav class="sidebar-nav">
+                    <a href="#" onclick="showAllPatients()"><span class="nav-icon">⊞</span> 患者管理</a>
+                </nav>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <div id="patient-selector" style="display:none;margin-bottom:20px;">
+                <select class="form-input" id="patient-select" onchange="switchPatient(this.value)"
+                    style="max-width:320px;"></select>
+            </div>
+
+            <div class="patient-banner" id="patient-card">
+                <div class="patient-avatar" id="patient-avatar">-</div>
+                <div class="patient-info">
+                    <h2 id="patient-name">加载中…</h2>
+                    <div class="patient-meta">
+                        <span id="patient-age">—</span>
+                        <span id="patient-gender">—</span>
+                        <span id="patient-bed">—</span>
+                        <span id="patient-disease">—</span>
+                    </div>
+                    <div class="agent-badge" id="patient-agent">
+                        <span id="agent-icon">⚕</span>
+                        <span id="agent-name">护理Agent</span>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+                <span class="pulse-indicator green"></span>
+                <span class="h3">实时生命体征</span>
+            </div>
+            <div class="vitals-grid">
+                <div class="card vital-card heart vital-card-heartbeat">
+                    <div class="vital-label">♡ 心率</div>
+                    <div class="vital-value heart" id="v-hr">—</div>
+                    <div class="vital-unit">bpm</div>
+                    <div class="vital-trend stable" id="v-hr-trend">— 稳定</div>
+                </div>
+                <div class="card vital-card resp">
+                    <div class="vital-label">🫁 呼吸率 <span class="fab-sensor-tag">边缘FFT</span></div>
+                    <div class="vital-value" id="v-rr" style="color:#0ea5e9">—</div>
+                    <div class="vital-unit">次/分</div>
+                    <div class="vital-trend stable" id="v-rr-trend">— 正常</div>
+                </div>
+                <div class="card vital-card bp">
+                    <div class="vital-label">⊘ 血压</div>
+                    <div class="vital-value bp" id="v-bp">—/—</div>
+                    <div class="vital-unit">mmHg</div>
+                    <div class="vital-trend stable" id="v-bp-trend">— 稳定</div>
+                </div>
+                <div class="card vital-card spo2">
+                    <div class="vital-label">◎ 血氧</div>
+                    <div class="vital-value spo2" id="v-spo2">—</div>
+                    <div class="vital-unit">%SpO₂</div>
+                    <div class="vital-trend stable" id="v-spo2-trend">— 正常</div>
+                </div>
+                <div class="card vital-card glucose">
+                    <div class="vital-label">◇ 血糖</div>
+                    <div class="vital-value glucose" id="v-glucose">—</div>
+                    <div class="vital-unit">mmol/L</div>
+                    <div class="vital-trend stable" id="v-glucose-trend">— 正常</div>
+                </div>
+                <div class="card vital-card temp">
+                    <div class="vital-label">◌ 体温 <span class="fab-sensor-tag">织物传感</span></div>
+                    <div class="vital-value temp" id="v-temp">—</div>
+                    <div class="vital-unit">°C</div>
+                    <div class="vital-trend stable" id="v-temp-trend">— 正常</div>
+                </div>
+                <div class="card vital-card posture">
+                    <div class="vital-label">⊡ 睡姿 <span class="fab-sensor-tag">织物传感</span></div>
+                    <div class="vital-value posture" id="v-posture" style="font-size:1.5rem">—</div>
+                    <div class="vital-unit">当前体位</div>
+                    <div class="vital-trend stable" id="v-posture-trend">— 正常</div>
+                </div>
+            </div>
+
+            <div class="grid-2" style="margin-top:20px">
+                <div class="card">
+                    <div class="h3" style="margin-bottom:12px">🧶 织物压力热力图 <span class="fab-sensor-tag">实时</span></div>
+                    <canvas id="pressureHeatmap" width="240" height="240"
+                        style="width:100%;max-width:280px;border-radius:8px;background:#111;image-rendering:pixelated"></canvas>
+                    <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:.75rem;color:var(--ash)">
+                        <span>低压 🟦</span><span>中压 🟩</span><span>高压 🟥</span>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="h3" style="margin-bottom:12px">🛡 受压风险评估</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                        <div style="padding:12px;background:var(--snow);border-radius:var(--r-lg);text-align:center">
+                            <div style="font-size:1.6rem;font-weight:700" id="ulcer-level">—</div>
+                            <div class="caption">风险等级</div>
+                        </div>
+                        <div style="padding:12px;background:var(--snow);border-radius:var(--r-lg);text-align:center">
+                            <div style="font-size:1.6rem;font-weight:700" id="turnover-count">0</div>
+                            <div class="caption">翻身次数</div>
+                        </div>
+                    </div>
+                    <div id="ulcer-advice"
+                        style="margin-top:12px;padding:10px;background:var(--snow);border-radius:var(--r-lg);font-size:.82rem;color:var(--ash);min-height:60px">
+                        等待传感器数据...
+                    </div>
+                    <button class="btn btn-teal btn-sm" style="margin-top:10px;width:100%"
+                        onclick="requestPressureAI()">🧠 AI深度分析</button>
+                </div>
+            </div>
+
+            <div class="grid-2" style="margin-top:20px">
+                <div class="card">
+                    <div class="h3" style="margin-bottom:12px">心率趋势 <span class="caption">(7日)</span></div>
+                    <div class="chart-container"><canvas id="heartRateChart"></canvas></div>
+                </div>
+                <div class="card">
+                    <div class="h3" style="margin-bottom:12px">血压趋势 <span class="caption">(7日)</span></div>
+                    <div class="chart-container"><canvas id="bpChart"></canvas></div>
+                </div>
+            </div>
+            <div class="grid-2" style="margin-top:20px">
+                <div class="card">
+                    <div class="h3" style="margin-bottom:12px">血氧 &amp; 体温 <span class="caption">(7日)</span></div>
+                    <div class="chart-container"><canvas id="spo2TempChart"></canvas></div>
+                </div>
+                <div class="card">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                        <div class="h3">最近预警</div>
+                        <a href="alerts.html" style="font-size:.8rem;color:var(--teal-500);font-weight:500">查看全部 →</a>
+                    </div>
+                    <div id="recent-alerts">
+                        <div class="empty-state" style="padding:20px">
+                            <div class="empty-icon">✓</div>
+                            <p class="caption">暂无报警</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Camera: WebRTC via mediamtx, manual IP input -->
+            <div class="card" style="margin-top:20px">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                    <div class="h3">📹 摄像头实时画面</div>
+                    <span style="font-size:.75rem;padding:3px 10px;border-radius:999px;
+                        background:rgba(67,217,173,.12);color:var(--teal-500)">⚡ WebRTC · 低延迟</span>
+                </div>
+                <div style="background:#0a0f1e;border-radius:10px;padding:24px 20px">
+                    <div style="display:flex;gap:8px;margin-bottom:10px">
+                        <input type="text" id="cam-ip-input" class="form-input"
+                            placeholder="树莓派 IP，如 10.20.42.167"
+                            style="flex:1;font-family:monospace;font-size:.85rem"
+                            onkeydown="if(event.key==='Enter')openCamWindow()">
+                        <button class="btn btn-teal" onclick="openCamWindow()" style="white-space:nowrap">
+                            📺 打开画面
+                        </button>
+                    </div>
+                    <div style="font-size:.72rem;color:var(--ash);text-align:center">
+                        在新窗口打开 mediamtx WebRTC 播放器 · 需与树莓派在同一局域网
+                    </div>
+                </div>
+                <div style="margin-top:6px;font-size:.72rem;color:var(--ash)" id="cam-info">— 输入IP后点击打开</div>
+            </div>
+
+            <div style="text-align:center;padding:18px 0 8px;color:var(--ash);font-size:.78rem;letter-spacing:.04em">
+                <span style="color:var(--coral-400)">💝</span> 24小时智能守护，让爱不缺席 ·
+                <span style="color:var(--teal-500)">系统运行正常</span>
+            </div>
+        </main>
+    </div>
+
+    <div class="modal-overlay" id="agent-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>AI 护理咨询</h2>
+                <button class="modal-close" onclick="closeAgentModal()">✕</button>
+            </div>
+            <div id="agent-info"
+                style="padding:12px 14px;background:var(--snow);border-radius:var(--r-lg);margin-bottom:16px;font-size:.82rem;color:var(--ash)">
+            </div>
+            <div id="agent-messages" style="max-height:300px;overflow-y:auto;margin-bottom:14px"></div>
+            <div style="display:flex;gap:8px">
+                <input type="text" class="form-input" id="agent-question" placeholder="请输入您的问题…" style="flex:1">
+                <button class="btn btn-teal" onclick="askAgent()">发送</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toast-container"></div>
+    <script src="js/auth.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+    <script src="js/dashboard.js"></script>
+    <script>
+    (function(){
+        var inp = document.getElementById('cam-ip-input'),
+            inf = document.getElementById('cam-info');
+
+        var saved = localStorage.getItem('camIp');
+        if (saved) { inp.value = saved; inf.textContent = '— 已记忆上次IP: ' + saved; }
+
+        window.openCamWindow = function() {
+            var ip = inp.value.trim();
+            if (!ip) { inf.textContent = '请输入树莓派IP'; return; }
+            localStorage.setItem('camIp', ip);
+            var url = 'http://' + ip + ':8889/cam';
+            window.open(url, '_blank', 'width=820,height=540,noopener');
+            inf.textContent = '⚡ 已打开 ' + url;
+        };
+
+        // Try auto-fill from server
+        var _t = 0;
+        (function _wait(){
+            if (!window.currentPatientId && _t++ < 8) { setTimeout(_wait, 300); return; }
+            if (inp.value) return;
+            fetch('/api/device/info?patient_id=' + (window.currentPatientId || ''))
+                .then(function(r){ return r.json(); })
+                .then(function(d){ if (d.device_ip) { inp.value = d.device_ip; inf.textContent = '✅ 自动发现: ' + d.device_ip; } })
+                .catch(function(){});
+        })();
+    })();
+    </script>
+</body>
+</html>

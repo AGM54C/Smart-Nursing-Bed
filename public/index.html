@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="智能护理病床 — 基于IoT与AI的慢性病智能看护平台">
+    <title>智能护理病床 · Smart Nursing Bed</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.88em' font-size='90'>⚕</text></svg>">
+</head>
+
+<body>
+
+    <!-- Navbar -->
+    <nav class="navbar" id="navbar">
+        <a href="/" class="navbar-brand">
+            <div class="mark">NB</div>
+            智能护理病床
+        </a>
+        <ul class="navbar-nav">
+            <li><a href="#features">功能</a></li>
+            <li><a href="#tech">架构</a></li>
+            <li><a href="#agents">AI Agent</a></li>
+        </ul>
+        <div class="navbar-user">
+            <a href="login.html" class="btn btn-outline btn-sm">登录</a>
+            <a href="login.html#register" class="btn btn-fill btn-sm">开始使用</a>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="hero-bg">
+            <div class="blob blob-1"></div>
+            <div class="blob blob-2"></div>
+            <div class="blob blob-3"></div>
+        </div>
+        <div class="container">
+            <div class="hero-inner">
+                <div class="hero-text">
+                    <div class="hero-tag"><span class="dot"></span>IoT 智能医疗</div>
+                    <h1>慢性病看护，<br>交给<em>智能病床</em></h1>
+                    <p>织物传感器无感监测体温与睡姿，五种专病AI Agent提供精准护理建议，7×24小时守护每一位患者。</p>
+                    <div class="hero-actions">
+                        <a href="login.html" class="btn btn-teal btn-lg">进入监护平台</a>
+                        <a href="#features" class="btn btn-outline btn-lg">了解更多</a>
+                    </div>
+                </div>
+                <div class="hero-visual">
+                    <div class="hero-card-stack" style="height:280px;">
+                        <div class="hero-float-card c1">
+                            <div class="fc-label">Heart Rate</div>
+                            <div class="fc-row"><span class="fc-val">72</span><span class="fc-unit">bpm</span></div>
+                            <div class="fc-bar" style="width:65%"></div>
+                        </div>
+                        <div class="hero-float-card c2">
+                            <div class="fc-label">Blood Oxygen</div>
+                            <div class="fc-row"><span class="fc-val">97</span><span class="fc-unit">%SpO₂</span></div>
+                            <div class="fc-bar" style="width:82%"></div>
+                        </div>
+                        <div class="hero-float-card c3">
+                            <div class="fc-label">Blood Pressure</div>
+                            <div class="fc-row"><span class="fc-val">120/74</span><span class="fc-unit">mmHg</span>
+                            </div>
+                            <div class="fc-bar" style="width:55%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Metrics Band -->
+            <div class="metrics-band">
+                <div class="m-item">
+                    <div class="m-val" style="color:var(--teal-600)">6</div>
+                    <div class="m-label">监测指标</div>
+                </div>
+                <div class="m-item">
+                    <div class="m-val" style="color:var(--coral-500)">5</div>
+                    <div class="m-label">专病 Agent</div>
+                </div>
+                <div class="m-item">
+                    <div class="m-val" style="color:var(--blue-500)">24h</div>
+                    <div class="m-label">不间断监护</div>
+                </div>
+                <div class="m-item">
+                    <div class="m-val" style="color:var(--plum-500)">AI</div>
+                    <div class="m-label">大模型诊断</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features -->
+    <section class="section" id="features" style="background:var(--white)">
+        <div class="container">
+            <div class="section-header">
+                <div class="overline">核心能力</div>
+                <h2>六大核心功能，全方位守护</h2>
+                <p>融合织物传感、边缘计算与大模型AI，构建下一代慢性病护理系统</p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-item animate-in">
+                    <div class="fi-icon coral">🌡</div>
+                    <h3>织物传感监测</h3>
+                    <p>传感器织入床单面料，无感采集全身体温分布与睡姿变化，专利级柔性传感技术</p>
+                </div>
+                <div class="feature-item animate-in">
+                    <div class="fi-icon teal">♡</div>
+                    <h3>多维生命体征</h3>
+                    <p>心率、血压、血氧、血糖、体温、睡姿六大核心指标实时采集与趋势分析</p>
+                </div>
+                <div class="feature-item animate-in">
+                    <div class="fi-icon plum">⚙</div>
+                    <h3>专病 AI Agent</h3>
+                    <p>针对高位截瘫、糖尿病、中风后遗症等配备专属AI护理助手，精准个性化建议</p>
+                </div>
+                <div class="feature-item animate-in">
+                    <div class="fi-icon blue">◈</div>
+                    <h3>智能体检报告</h3>
+                    <p>AI大模型每日自动生成健康分析报告，包含诊断意见、康复建议与风险评估</p>
+                </div>
+                <div class="feature-item animate-in">
+                    <div class="fi-icon rose">△</div>
+                    <h3>分级预警系统</h3>
+                    <p>阈值实时检测，异常立即分级告警，危急情况秒级通知医护团队和家属</p>
+                </div>
+                <div class="feature-item animate-in">
+                    <div class="fi-icon amber">⬡</div>
+                    <h3>自主移动病床</h3>
+                    <p>远程控制与自主调位，配合体位护理算法自动调整翻身间隔与体位角度</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Tech Architecture -->
+    <section class="section" id="tech">
+        <div class="container">
+            <div class="section-header center">
+                <div class="overline">系统架构</div>
+                <h2>边缘 + 云端，轻量可靠</h2>
+                <p>树莓派边缘采集、阿里云轻量服务、Kimi大模型智能分析的三层架构</p>
+            </div>
+            <div class="tech-row">
+                <div class="tech-item animate-in">
+                    <div class="ti-icon">◉</div>
+                    <h3>树莓派 + ESP32</h3>
+                    <p>边缘端采集传感器数据，本地预处理与实时控制</p>
+                    <div class="tags">
+                        <span class="tag teal">GPIO</span>
+                        <span class="tag blue">MQTT</span>
+                        <span class="tag coral">BLE</span>
+                    </div>
+                </div>
+                <div class="tech-item animate-in">
+                    <div class="ti-icon">☁</div>
+                    <h3>阿里云 2C2G</h3>
+                    <p>Node.js + SQLite 轻量部署，低成本高可靠</p>
+                    <div class="tags">
+                        <span class="tag teal">Express</span>
+                        <span class="tag blue">SQLite</span>
+                        <span class="tag amber">Nginx</span>
+                    </div>
+                </div>
+                <div class="tech-item animate-in">
+                    <div class="ti-icon">⬢</div>
+                    <h3>Kimi 大模型</h3>
+                    <p>Moonshot Kimi-2.5 多模态模型，专业临床分析</p>
+                    <div class="tags">
+                        <span class="tag plum">NLP</span>
+                        <span class="tag coral">诊断</span>
+                        <span class="tag teal">康复建议</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Architecture Flow -->
+            <div class="card-elevated" style="margin-top:28px;padding:28px;">
+                <div class="arch-flow">
+                    <div class="arch-node" style="background:var(--green-50);color:var(--green-500)">织物传感器</div>
+                    <div class="arch-arrow">→</div>
+                    <div class="arch-node" style="background:var(--coral-50);color:var(--coral-500)">ESP32 · 树莓派</div>
+                    <div class="arch-arrow">→</div>
+                    <div class="arch-node" style="background:var(--blue-50);color:var(--blue-500)">阿里云服务器</div>
+                    <div class="arch-arrow">→</div>
+                    <div class="arch-node" style="background:var(--plum-50);color:var(--plum-500)">Kimi AI 诊断</div>
+                    <div class="arch-arrow">→</div>
+                    <div class="arch-node" style="background:var(--amber-50);color:var(--amber-400)">医护 · 患者端</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- AI Agents -->
+    <section class="section" id="agents" style="background:var(--white)">
+        <div class="container">
+            <div class="section-header center">
+                <div class="overline">智能护理</div>
+                <h2>五种专病 AI Agent</h2>
+                <p>每种慢性病配备专属AI护理助手，基于Kimi大模型实现精准个性化诊断</p>
+            </div>
+            <div class="agents-grid">
+                <div class="agent-card animate-in">
+                    <div class="ac-icon">🦽</div>
+                    <h3>高位截瘫</h3>
+                    <p>体温调节、受压监测与呼吸道安全、呼吸功能与自主神经管理</p>
+                </div>
+                <div class="agent-card animate-in">
+                    <div class="ac-icon">💉</div>
+                    <h3>糖尿病</h3>
+                    <p>血糖血压联合管控、并发症预防、饮食运动指导</p>
+                </div>
+                <div class="agent-card animate-in">
+                    <div class="ac-icon">🧠</div>
+                    <h3>中风康复</h3>
+                    <p>血压控制、偏瘫康复训练、二次中风预防</p>
+                </div>
+                <div class="agent-card animate-in">
+                    <div class="ac-icon">🫁</div>
+                    <h3>COPD</h3>
+                    <p>血氧重点监护、呼吸管理、急性加重预警</p>
+                </div>
+                <div class="agent-card animate-in">
+                    <div class="ac-icon">⚕</div>
+                    <h3>通用护理</h3>
+                    <p>全科综合监护、趋势分析与生活方式建议</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- About -->
+    <section class="section">
+        <div class="container">
+            <div class="grid-2" style="max-width:860px;margin:0 auto">
+                <div class="card">
+                    <div class="h3" style="margin-bottom:14px">项目目标</div>
+                    <ul style="color:var(--ash);font-size:.88rem;line-height:2.2">
+                        <li style="padding-left:16px;position:relative"><span
+                                style="position:absolute;left:0;color:var(--teal-400)">›</span>解决慢性病患者长期看护难题</li>
+                        <li style="padding-left:16px;position:relative"><span
+                                style="position:absolute;left:0;color:var(--teal-400)">›</span>降低医护人员工作负担</li>
+                        <li style="padding-left:16px;position:relative"><span
+                                style="position:absolute;left:0;color:var(--teal-400)">›</span>家属远程实时关注患者状态</li>
+                        <li style="padding-left:16px;position:relative"><span
+                                style="position:absolute;left:0;color:var(--teal-400)">›</span>AI辅助临床判断与决策</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <div class="h3" style="margin-bottom:14px">技术创新</div>
+                    <ul style="color:var(--ash);font-size:.88rem;line-height:2.2">
+                        <li style="padding-left:16px;position:relative"><span
+                                style="position:absolute;left:0;color:var(--coral-400)">›</span>织物传感器无感监测体温和睡姿</li>
+                        <li style="padding-left:16px;position:relative"><span
+                                style="position:absolute;left:0;color:var(--coral-400)">›</span>专病Agent个性化护理方案</li>
+                        <li style="padding-left:16px;position:relative"><span
+                                style="position:absolute;left:0;color:var(--coral-400)">›</span>多模态大模型临床诊断分析</li>
+                        <li style="padding-left:16px;position:relative"><span
+                                style="position:absolute;left:0;color:var(--coral-400)">›</span>边缘-云协同低延迟架构</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <h3>Smart Nursing Bed</h3>
+                    <p>基于物联网与AI大模型的慢性病智能看护系统<br>smartnursingbed.com</p>
+                </div>
+                <div>
+                    <h4>功能</h4>
+                    <ul>
+                        <li><a href="login.html">实时监护</a></li>
+                        <li><a href="login.html">体检报告</a></li>
+                        <li><a href="login.html">AI 咨询</a></li>
+                        <li><a href="login.html">预警管理</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4>技术</h4>
+                    <ul>
+                        <li><a href="#">API 文档</a></li>
+                        <li><a href="#">设备接入</a></li>
+                        <li><a href="#">部署指南</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">© 2026 Smart Nursing Bed · IoT Healthcare Platform</div>
+        </div>
+    </footer>
+
+    <script>
+        window.addEventListener('scroll', () => {
+            document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 10);
+        });
+        document.querySelectorAll('a[href^="#"]').forEach(a => {
+            a.addEventListener('click', e => {
+                e.preventDefault();
+                const t = document.querySelector(a.getAttribute('href'));
+                if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        });
+        const obs = new IntersectionObserver(entries => {
+            entries.forEach(e => { if (e.isIntersecting) { e.target.style.animationPlayState = 'running'; obs.unobserve(e.target) } });
+        }, { threshold: .15 });
+        document.querySelectorAll('.animate-in').forEach(el => { el.style.animationPlayState = 'paused'; obs.observe(el) });
+    </script>
+</body>
+
+</html>

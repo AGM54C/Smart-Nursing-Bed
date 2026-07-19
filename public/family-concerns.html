@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>患者关注 · 智能护理病床</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.88em' font-size='90'>⚕</text></svg>">
+    <style>
+        .concerns-container {
+            max-width: 780px;
+            margin: 0 auto;
+        }
+
+        .concern-card {
+            background: white;
+            border-radius: var(--r-xl);
+            border: 1px solid var(--border);
+            padding: 28px;
+            margin-bottom: 20px;
+            transition: all .3s ease;
+        }
+
+        .concern-card:hover {
+            box-shadow: 0 4px 20px rgba(0, 0, 0, .06);
+        }
+
+        .concern-section {
+            margin-bottom: 20px;
+        }
+
+        .concern-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .concern-section-label {
+            font-size: .72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .6px;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+        }
+
+        .concern-tag {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: var(--r-full);
+            font-size: .8rem;
+            font-weight: 600;
+            margin: 3px 4px 3px 0;
+        }
+
+        .concern-tag.worry {
+            background: var(--coral-50);
+            color: var(--coral-500);
+        }
+
+        .concern-tag.physical {
+            background: var(--blue-50);
+            color: var(--blue-500);
+        }
+
+        .concern-tag.need {
+            background: var(--green-50);
+            color: var(--green-500);
+        }
+
+        .emotional-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: linear-gradient(135deg, var(--plum-50), var(--coral-50));
+            color: var(--plum-500);
+            border-radius: var(--r-xl);
+            font-size: .85rem;
+            font-weight: 600;
+        }
+
+        .summary-text {
+            font-size: .9rem;
+            line-height: 1.9;
+            color: var(--ash);
+            background: var(--snow);
+            padding: 16px 20px;
+            border-radius: var(--r-lg);
+            border-left: 3px solid var(--primary);
+        }
+
+        .concern-meta {
+            display: flex;
+            gap: 16px;
+            font-size: .76rem;
+            color: var(--text-muted);
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid var(--border);
+        }
+
+        .empty-concerns {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-concerns .empty-icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+            opacity: .5;
+        }
+
+        .empty-concerns h3 {
+            color: var(--ink);
+            margin-bottom: 8px;
+        }
+
+        .empty-concerns p {
+            font-size: .85rem;
+            max-width: 360px;
+            margin: 0 auto;
+            line-height: 1.7;
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav class="navbar scrolled">
+        <a href="/" class="navbar-brand">
+            <div class="mark">NB</div>智能护理病床
+        </a>
+        <div class="navbar-user">
+            <span id="nav-alert-badge"
+                style="background:var(--danger);color:#fff;padding:2px 10px;border-radius:var(--r-full);font-size:.72rem;font-weight:600;display:none;cursor:pointer"
+                onclick="location.href='alerts.html'"></span>
+            <span id="nav-username" style="font-weight:500;font-size:.85rem;color:var(--ash)"></span>
+            <div class="navbar-avatar" id="nav-avatar"></div>
+            <button class="btn btn-outline btn-sm" onclick="logout()">退出</button>
+        </div>
+    </nav>
+
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <div class="s-label">监护</div>
+                <nav class="sidebar-nav">
+                    <a href="dashboard.html"><span class="nav-icon">◉</span> 监护面板</a>
+                    <a href="reports.html"><span class="nav-icon">◈</span> 体检报告</a>
+                    <a href="records.html"><span class="nav-icon">◆</span> 病历档案</a>
+                    <a href="alerts.html"><span class="nav-icon">△</span> 预警管理</a>
+                    <a href="reminders.html"><span class="nav-icon">⏰</span> 智能提醒</a>
+                </nav>
+            </div>
+            <div class="sidebar-section">
+                <div class="s-label">智能</div>
+                <nav class="sidebar-nav">
+                    <a href="digital-twin.html"><span class="nav-icon">🔮</span> 数字孪生</a>
+                    <a href="voice-chat.html"><span class="nav-icon">🎙</span> 语音陪聊</a>
+                    <a href="family-concerns.html" class="active"><span class="nav-icon">💝</span> 患者关注</a>
+                </nav>
+            </div>
+            <div class="sidebar-section" id="admin-nav" style="display:none">
+                <div class="s-label">管理</div>
+                <nav class="sidebar-nav">
+                    <a href="#" onclick="showAllPatients()"><span class="nav-icon">⊞</span> 患者管理</a>
+                </nav>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <!-- Patient Selector -->
+            <div id="patient-selector" style="display:none;margin-bottom:20px;">
+                <select class="form-input" id="patient-select" onchange="switchPatient(this.value)"
+                    style="max-width:320px;"></select>
+            </div>
+
+            <div class="concerns-container">
+                <!-- Header -->
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <div
+                            style="width:44px;height:44px;border-radius:var(--r-full);background:linear-gradient(135deg,var(--plum-400),var(--coral-400));display:flex;align-items:center;justify-content:center;color:white;font-size:1.3rem;">
+                            💝</div>
+                        <div>
+                            <h2 style="margin:0;font-size:1.2rem;">患者关注分析</h2>
+                            <p class="caption" style="margin:0;margin-top:2px;"><span id="concern-patient-name"
+                                    style="color:var(--primary);font-weight:600;">患者</span> 的关注点与心理状态</p>
+                        </div>
+                    </div>
+                    <button class="btn btn-teal btn-sm" id="btn-generate" onclick="generateConcerns()">
+                        ✨ 生成分析
+                    </button>
+                </div>
+
+                <!-- Concerns List -->
+                <div id="concerns-list">
+                    <div class="empty-concerns">
+                        <div class="empty-icon">💭</div>
+                        <h3>暂无关注点分析</h3>
+                        <p>当患者与AI陪护助手进行语音对话后，系统将自动分析患者关心的话题和情绪状态</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="toast-container" id="toast-container"></div>
+    <script src="js/auth.js"></script>
+    <script>
+        let currentPatientId = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const user = getUser();
+            if (!user) return;
+
+            if (user.role === 'admin' || user.role === 'doctor') {
+                await loadPatientSelector();
+            } else if (user.patient_id) {
+                currentPatientId = user.patient_id;
+            } else if (user.role === 'family') {
+                await loadFamilyPatient();
+            }
+
+            if (currentPatientId) {
+                loadPatientName(currentPatientId);
+                loadConcerns(currentPatientId);
+            }
+        });
+
+        async function loadPatientSelector() {
+            const res = await apiFetch('/api/patients');
+            if (!res) return;
+            const patients = await res.json();
+            if (patients.length === 0) return;
+
+            const selector = document.getElementById('patient-selector');
+            const select = document.getElementById('patient-select');
+            selector.style.display = 'block';
+            select.innerHTML = patients.map(p =>
+                `<option value="${p.id}">${p.name} - ${p.bed_number} - ${p.disease_type}</option>`
+            ).join('');
+            currentPatientId = patients[0].id;
+        }
+
+        async function loadFamilyPatient() {
+            const res = await apiFetch('/api/patients');
+            if (!res) return;
+            const patients = await res.json();
+            if (patients.length > 0) {
+                currentPatientId = patients[0].id || patients[0];
+            }
+        }
+
+        async function switchPatient(id) {
+            currentPatientId = parseInt(id);
+            loadPatientName(currentPatientId);
+            loadConcerns(currentPatientId);
+        }
+
+        async function loadPatientName(patientId) {
+            const res = await apiFetch(`/api/patients/${patientId}`);
+            if (!res) return;
+            const data = await res.json();
+            document.getElementById('concern-patient-name').textContent = data.patient ? data.patient.name : '患者';
+        }
+
+        async function loadConcerns(patientId) {
+            const res = await apiFetch(`/api/voice/concerns/${patientId}`);
+            if (!res) return;
+            const concerns = await res.json();
+
+            const container = document.getElementById('concerns-list');
+
+            if (!concerns || concerns.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-concerns">
+                        <div class="empty-icon">💭</div>
+                        <h3>暂无关注点分析</h3>
+                        <p>当患者与AI陪护助手进行语音对话后，点击"生成分析"按钮，系统将分析患者关心的话题和情绪状态</p>
+                    </div>`;
+                return;
+            }
+
+            container.innerHTML = concerns.map(c => {
+                let topConcerns = [], physicalComplaints = [], needs = [];
+                try { topConcerns = JSON.parse(c.top_concerns || '[]'); } catch (e) { }
+                try { physicalComplaints = JSON.parse(c.physical_complaints || '[]'); } catch (e) { }
+                try { needs = JSON.parse(c.needs || '[]'); } catch (e) { }
+
+                return `
+                <div class="concern-card">
+                    <div class="concern-section">
+                        <div class="concern-section-label">💭 主要关注点</div>
+                        <div>${topConcerns.map(t => `<span class="concern-tag worry">${t}</span>`).join('') || '<span style="color:var(--text-muted);font-size:.85rem">暂无数据</span>'}</div>
+                    </div>
+
+                    <div class="concern-section">
+                        <div class="concern-section-label">🫀 情绪状态</div>
+                        <div class="emotional-badge">🧠 ${c.emotional_state || '暂无分析'}</div>
+                    </div>
+
+                    ${physicalComplaints.length > 0 ? `
+                    <div class="concern-section">
+                        <div class="concern-section-label">🩺 身体不适</div>
+                        <div>${physicalComplaints.map(p => `<span class="concern-tag physical">${p}</span>`).join('')}</div>
+                    </div>` : ''}
+
+                    ${needs.length > 0 ? `
+                    <div class="concern-section">
+                        <div class="concern-section-label">📋 需求</div>
+                        <div>${needs.map(n => `<span class="concern-tag need">${n}</span>`).join('')}</div>
+                    </div>` : ''}
+
+                    <div class="concern-section">
+                        <div class="concern-section-label">📝 AI 综合分析</div>
+                        <div class="summary-text">${c.summary || '暂无'}</div>
+                    </div>
+
+                    <div class="concern-meta">
+                        <span>📊 基于 ${c.conversation_count || 0} 条对话</span>
+                        <span>🕐 ${formatDateTime(c.generated_at)}</span>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        async function generateConcerns() {
+            if (!currentPatientId) {
+                showToast('请先选择患者', 'warning');
+                return;
+            }
+
+            const btn = document.getElementById('btn-generate');
+            btn.disabled = true;
+            btn.textContent = '⏳ 分析中…';
+
+            try {
+                const res = await apiFetch(`/api/voice/concerns/generate/${currentPatientId}`, {
+                    method: 'POST'
+                });
+
+                if (!res) {
+                    btn.disabled = false;
+                    btn.textContent = '✨ 生成分析';
+                    return;
+                }
+
+                const data = await res.json();
+
+                if (data.error) {
+                    showToast(data.error, 'warning');
+                } else {
+                    showToast('关注点分析生成成功！', 'success');
+                    loadConcerns(currentPatientId);
+                }
+            } catch (err) {
+                showToast('分析生成失败', 'error');
+            }
+
+            btn.disabled = false;
+            btn.textContent = '✨ 生成分析';
+        }
+
+        function showAllPatients() {
+            window.location.href = 'dashboard.html';
+        }
+    </script>
+</body>
+
+</html>

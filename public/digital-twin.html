@@ -1,0 +1,1885 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数字孪生 · 智能护理病床</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://unpkg.com/three@0.147.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://unpkg.com/three@0.147.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        :root {
+            --warm-gold: #f9c74f;
+            --warm-orange: #f4845f;
+            --healing-green: #43d9ad;
+            --soft-pink: #ffb3c6;
+            --deep-blue: #0a1628;
+            --mid-blue: #112244;
+            --glass-bg: rgba(255, 255, 255, 0.06);
+            --glass-border: rgba(255, 255, 255, 0.12);
+        }
+
+        body {
+            background: var(--deep-blue);
+            color: #e8eaf6;
+        }
+
+        /* ── Page layout ── */
+        .twin-page {
+            padding-top: 70px;
+            min-height: 100vh;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* ── Animated background ── */
+        .bg-aura {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .bg-aura .aura {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(90px);
+            opacity: 0.18;
+            animation: aura-drift 20s ease-in-out infinite;
+        }
+
+        .bg-aura .a1 {
+            width: 600px;
+            height: 600px;
+            background: #f9c74f;
+            top: -200px;
+            right: -100px;
+            animation-delay: 0s;
+        }
+
+        .bg-aura .a2 {
+            width: 450px;
+            height: 450px;
+            background: #43d9ad;
+            bottom: -100px;
+            left: -80px;
+            animation-delay: -7s;
+        }
+
+        .bg-aura .a3 {
+            width: 350px;
+            height: 350px;
+            background: #7f85ff;
+            top: 40%;
+            left: 40%;
+            animation-delay: -13s;
+        }
+
+        @keyframes aura-drift {
+
+            0%,
+            100% {
+                transform: translate(0, 0) scale(1);
+            }
+
+            33% {
+                transform: translate(30px, -40px) scale(1.08);
+            }
+
+            66% {
+                transform: translate(-20px, 30px) scale(0.95);
+            }
+        }
+
+        /* ── Care banner ── */
+        .care-banner {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            padding: 18px 0 4px;
+        }
+
+        .care-banner .care-text {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+            color: rgba(249, 199, 79, 0.9);
+            font-weight: 500;
+            letter-spacing: 0.04em;
+        }
+
+        .care-banner .care-heart {
+            font-size: 1.1rem;
+            animation: heartbeat 1.4s ease-in-out infinite;
+        }
+
+        @keyframes heartbeat {
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            15% {
+                transform: scale(1.25);
+            }
+
+            30% {
+                transform: scale(1);
+            }
+
+            45% {
+                transform: scale(1.15);
+            }
+
+            60% {
+                transform: scale(1);
+            }
+        }
+
+        /* ── Navigation navbar override ── */
+        .twin-page .navbar {
+            background: rgba(10, 22, 40, 0.85) !important;
+            border-bottom-color: rgba(255, 255, 255, 0.07) !important;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ── 3D Canvas ── */
+        #twin-canvas {
+            width: 100%;
+            height: 62vh;
+            border-radius: 24px;
+            overflow: hidden;
+            position: relative;
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 0 60px rgba(67, 217, 173, 0.12), 0 0 120px rgba(249, 199, 79, 0.06);
+        }
+
+        canvas {
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        /* ── Overlay badges ── */
+        .twin-overlay {
+            position: absolute;
+            top: 18px;
+            left: 18px;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .twin-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 15px;
+            border-radius: 999px;
+            background: rgba(10, 22, 40, 0.6);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            font-size: 0.78rem;
+            font-weight: 500;
+            color: #c8d8f8;
+        }
+
+        .dot-live {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--healing-green);
+            box-shadow: 0 0 8px var(--healing-green);
+            animation: pulse-live 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-live {
+
+            0%,
+            100% {
+                opacity: 1;
+                box-shadow: 0 0 8px var(--healing-green);
+            }
+
+            50% {
+                opacity: 0.5;
+                box-shadow: 0 0 16px var(--healing-green);
+            }
+        }
+
+        /* ── Controls ── */
+        .twin-controls {
+            position: absolute;
+            bottom: 18px;
+            right: 18px;
+            z-index: 10;
+            display: flex;
+            gap: 8px;
+        }
+
+        .twin-controls button {
+            padding: 8px 15px;
+            border-radius: 10px;
+            background: rgba(10, 22, 40, 0.65);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            color: #b8cce8;
+            font-size: 0.77rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            letter-spacing: 0.02em;
+        }
+
+        .twin-controls button:hover {
+            background: rgba(67, 217, 173, 0.18);
+            border-color: var(--healing-green);
+            color: var(--healing-green);
+        }
+
+        .twin-controls button.active {
+            background: rgba(67, 217, 173, 0.25);
+            border-color: var(--healing-green);
+            color: var(--healing-green);
+        }
+
+        /* ── Vitals panels ── */
+        .twin-panels {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+            margin-top: 16px;
+        }
+
+        .twin-panel {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 18px;
+            padding: 20px 22px;
+            backdrop-filter: blur(12px);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s;
+        }
+
+        .twin-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            border-radius: 18px 18px 0 0;
+        }
+
+        .twin-panel.coral::before {
+            background: linear-gradient(90deg, var(--warm-orange), #ffb347);
+        }
+
+        .twin-panel.teal::before {
+            background: linear-gradient(90deg, var(--healing-green), #80ffe8);
+        }
+
+        .twin-panel.blue::before {
+            background: linear-gradient(90deg, #5a9cf5, #a0c4ff);
+        }
+
+        .twin-panel.gold::before {
+            background: linear-gradient(90deg, var(--warm-gold), #ffe08a);
+        }
+
+        .twin-panel:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+        }
+
+        .twin-panel .tp-icon {
+            font-size: 1.4rem;
+            margin-bottom: 8px;
+        }
+
+        .twin-panel .tp-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: rgba(200, 216, 248, 0.6);
+            margin-bottom: 6px;
+        }
+
+        .twin-panel .tp-val {
+            font-size: 2rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            line-height: 1;
+        }
+
+        .twin-panel .tp-unit {
+            font-size: 0.75rem;
+            color: rgba(200, 216, 248, 0.6);
+            margin-left: 3px;
+        }
+
+        .twin-panel .tp-sub {
+            font-size: 0.72rem;
+            margin-top: 6px;
+        }
+
+        .twin-panel.coral .tp-val {
+            color: var(--warm-orange);
+        }
+
+        .twin-panel.teal .tp-val {
+            color: var(--healing-green);
+        }
+
+        .twin-panel.blue .tp-val {
+            color: #7ab3f5;
+        }
+
+        .twin-panel.gold .tp-val {
+            color: var(--warm-gold);
+        }
+
+        /* heartbeat pulse on HR value */
+        .heartbeat-val {
+            animation: hr-pulse 1.4s ease-in-out infinite;
+            display: inline-block;
+        }
+
+        @keyframes hr-pulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            20% {
+                transform: scale(1.08);
+            }
+
+            40% {
+                transform: scale(1);
+            }
+        }
+
+        /* ── Pressure + Body regions ── */
+        .pressure-3d-container {
+            margin-top: 16px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        #pressure-3d-canvas {
+            width: 100%;
+            height: 280px;
+            border-radius: 18px;
+            overflow: hidden;
+            background: rgba(10, 22, 40, 0.5);
+            border: 1px solid var(--glass-border);
+        }
+
+        .pressure-legend {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 18px;
+            padding: 22px;
+            backdrop-filter: blur(12px);
+        }
+
+        .pressure-legend h4 {
+            font-size: 0.88rem;
+            font-weight: 600;
+            margin-bottom: 14px;
+            color: #c8d8f8;
+        }
+
+        .body-region {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 9px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .body-region:last-child {
+            border-bottom: none;
+        }
+
+        .body-region .region-name {
+            font-size: 0.8rem;
+            color: rgba(200, 216, 248, 0.7);
+        }
+
+        .body-region .region-bar {
+            flex: 1;
+            margin: 0 12px;
+            height: 5px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.06);
+            overflow: hidden;
+        }
+
+        .body-region .region-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.6s cubic-bezier(.4, 0, .2, 1);
+        }
+
+        .body-region .region-val {
+            font-size: 0.76rem;
+            font-weight: 600;
+            min-width: 38px;
+            text-align: right;
+            color: #c8d8f8;
+        }
+
+        /* ── Status bar ── */
+        .twin-status-bar {
+            margin-top: 16px;
+            padding: 14px 22px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            backdrop-filter: blur(12px);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 0.78rem;
+            color: rgba(200, 216, 248, 0.7);
+        }
+
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+        }
+
+        .status-dot.online {
+            background: var(--healing-green);
+            box-shadow: 0 0 7px rgba(67, 217, 173, 0.6);
+            animation: pulse-live 2.5s infinite;
+        }
+
+        .status-dot.offline {
+            background: #505060;
+        }
+
+        /* ── Care message footer ── */
+        .care-footer {
+            text-align: center;
+            padding: 18px 0 28px;
+            color: rgba(200, 216, 248, 0.45);
+            font-size: 0.8rem;
+            letter-spacing: 0.05em;
+        }
+
+        .care-footer span {
+            color: var(--soft-pink);
+        }
+
+        /* ── Prediction Panel ── */
+        .predict-panel {
+            margin-top: 20px;
+            padding: 20px 22px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 18px;
+        }
+
+        .predict-title {
+            font-size: .72rem;
+            text-transform: uppercase;
+            letter-spacing: .1em;
+            color: var(--warm-gold);
+            font-weight: 700;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .predict-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+
+        .predict-card {
+            background: rgba(255, 255, 255, .04);
+            border: 1px solid rgba(255, 255, 255, .07);
+            border-radius: 12px;
+            padding: 14px;
+        }
+
+        .predict-card .pc-label {
+            font-size: .68rem;
+            color: rgba(200, 216, 248, .5);
+            text-transform: uppercase;
+            letter-spacing: .06em;
+        }
+
+        .predict-card .pc-val {
+            font-size: 1.6rem;
+            font-weight: 800;
+            margin-top: 4px;
+            line-height: 1.1;
+        }
+
+        .predict-card .pc-sub {
+            font-size: .73rem;
+            color: rgba(200, 216, 248, .55);
+            margin-top: 3px;
+        }
+
+        .zone-list {
+            margin-top: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .zone-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, .03);
+            font-size: .78rem;
+        }
+
+        .zone-badge {
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: .68rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .z-high {
+            background: rgba(239, 68, 68, .2);
+            color: #f87171;
+        }
+
+        .z-medium {
+            background: rgba(245, 158, 11, .2);
+            color: #fbbf24;
+        }
+
+        .z-low {
+            background: rgba(67, 217, 173, .15);
+            color: #43d9ad;
+        }
+
+        .z-safe {
+            background: rgba(67, 217, 173, .08);
+            color: rgba(67, 217, 173, .5);
+        }
+
+        .schedule-list {
+            margin-top: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .sched-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 10px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, .03);
+            font-size: .78rem;
+        }
+
+        .sched-time {
+            color: var(--warm-gold);
+            font-weight: 700;
+            min-width: 38px;
+        }
+
+        .turn-alert {
+            display: none;
+            padding: 10px 14px;
+            border-radius: 10px;
+            background: rgba(239, 68, 68, .12);
+            border: 1px solid rgba(239, 68, 68, .3);
+            color: #f87171;
+            font-size: .82rem;
+            font-weight: 600;
+            margin-top: 10px;
+            animation: pulse-live 1.5s infinite;
+        }
+
+        /* ── Speech Bubble ── */
+        #speech-bubble {
+            display: none;
+            position: absolute;
+            bottom: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            min-width: 240px;
+            max-width: 370px;
+            z-index: 20;
+            background: rgba(8, 18, 36, 0.93);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(67, 217, 173, 0.4);
+            border-radius: 18px;
+            padding: 13px 18px;
+            box-shadow: 0 0 30px rgba(67, 217, 173, 0.18);
+            animation: bubble-in 0.3s ease-out;
+            pointer-events: none;
+        }
+
+        @keyframes bubble-in {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(12px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+
+        .nurse-id {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 7px;
+        }
+
+        .nurse-id span {
+            font-size: 0.67rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #43d9ad;
+            font-weight: 700;
+        }
+
+        .voice-wave {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            height: 14px;
+        }
+
+        .voice-wave .bar {
+            width: 3px;
+            border-radius: 2px;
+            background: #43d9ad;
+            animation: wave-bar 0.75s ease-in-out infinite;
+        }
+
+        .voice-wave .bar:nth-child(2) {
+            animation-delay: .12s
+        }
+
+        .voice-wave .bar:nth-child(3) {
+            animation-delay: .24s
+        }
+
+        .voice-wave .bar:nth-child(4) {
+            animation-delay: .36s
+        }
+
+        .voice-wave .bar:nth-child(5) {
+            animation-delay: .48s
+        }
+
+        @keyframes wave-bar {
+
+            0%,
+            100% {
+                height: 3px;
+                opacity: 0.35
+            }
+
+            50% {
+                height: 13px;
+                opacity: 1
+            }
+        }
+
+        #speech-text {
+            font-size: 0.83rem;
+            color: #d8e8f8;
+            line-height: 1.6;
+        }
+
+        .speaking-glow {
+            display: none;
+            position: absolute;
+            inset: 0;
+            border-radius: 24px;
+            pointer-events: none;
+            z-index: 11;
+            box-shadow: inset 0 0 50px rgba(67, 217, 173, 0.13);
+            animation: glow-pulse 1.2s ease-in-out infinite;
+        }
+
+        @keyframes glow-pulse {
+
+            0%,
+            100% {
+                box-shadow: inset 0 0 40px rgba(67, 217, 173, 0.10)
+            }
+
+            50% {
+                box-shadow: inset 0 0 70px rgba(67, 217, 173, 0.22)
+            }
+        }
+
+        #btn-voice.active {
+            background: rgba(67, 217, 173, 0.25);
+            border-color: var(--healing-green);
+            color: var(--healing-green);
+        }
+
+        @media (max-width: 768px) {
+            .twin-panels {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .pressure-3d-container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Animated warm background -->
+    <div class="bg-aura" aria-hidden="true">
+        <div class="aura a1"></div>
+        <div class="aura a2"></div>
+        <div class="aura a3"></div>
+    </div>
+
+    <!-- Navbar -->
+    <nav class="navbar" style="background: rgba(10,22,40,0.85); border-bottom-color: rgba(255,255,255,0.07);">
+        <a href="index.html" class="navbar-brand" style="color: #e8eaf6;">
+            <span class="mark">🛏️</span> 智能护理病床
+        </a>
+        <div class="navbar-nav">
+            <a href="dashboard.html" style="color: rgba(200,216,248,0.6);">体征面板</a>
+            <a href="digital-twin.html" style="color: var(--healing-green);">数字孪生</a>
+            <a href="reports.html" style="color: rgba(200,216,248,0.6);">AI报告</a>
+            <a href="voice-chat.html" style="color: rgba(200,216,248,0.6);">语音聊天</a>
+        </div>
+        <div class="navbar-user">
+            <span id="nav-user" style="font-size:.83rem; color: rgba(200,216,248,0.6);"></span>
+            <button onclick="logout()" class="btn btn-sm"
+                style="background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); color: rgba(200,216,248,0.7);">退出</button>
+        </div>
+    </nav>
+
+    <div class="twin-page">
+        <!-- Care header -->
+        <div class="care-banner">
+            <div class="care-text">
+                <span class="care-heart">💛</span>
+                守护每一个安稳的夜晚，让科技成为温暖的陪伴
+                <span class="care-heart" style="animation-delay:-0.7s">💛</span>
+            </div>
+        </div>
+
+        <div class="container" style="padding-bottom: 32px;">
+            <!-- 3D Scene -->
+            <div id="twin-canvas">
+                <div class="twin-overlay">
+                    <div class="twin-badge"><span class="dot-live"></span> 实时数字孪生</div>
+                    <div class="twin-badge" id="posture-badge">💤 姿态: 加载中...</div>
+                    <div class="twin-badge" id="risk-badge">🛡 受压风险: ---</div>
+                </div>
+                <div class="twin-controls">
+                    <button onclick="resetCamera()" id="btn-reset">🔭 重置视角</button>
+                    <button onclick="toggleAutoRotate()" id="btn-rotate">🔄 自动旋转</button>
+                    <button onclick="togglePressureView()" id="btn-pressure">🌡 压力视图</button>
+                    <button onclick="VOICE.toggle()" id="btn-voice">🔇 语音护士</button>
+                    <button onclick="VOICE.statusReport()" id="btn-report" title="播报当前体征">📢 体征播报</button>
+                </div>
+                <!-- Digital Nurse Speech Bubble -->
+                <div id="speech-bubble">
+                    <div class="nurse-id">
+                        <span>🤖 数字护士</span>
+                        <div class="voice-wave">
+                            <div class="bar"></div>
+                            <div class="bar"></div>
+                            <div class="bar"></div>
+                            <div class="bar"></div>
+                            <div class="bar"></div>
+                        </div>
+                    </div>
+                    <div id="speech-text"></div>
+                </div>
+                <!-- Speaking glow overlay -->
+                <div class="speaking-glow" id="speaking-glow"></div>
+            </div>
+
+            <!-- Vitals panels -->
+            <div class="twin-panels">
+                <div class="twin-panel coral">
+                    <div class="tp-icon">❤️</div>
+                    <div class="tp-label">心率</div>
+                    <div><span class="tp-val heartbeat-val" id="v-hr">--</span><span class="tp-unit">bpm</span></div>
+                    <div class="tp-sub" id="v-hr-status" style="color: rgba(200,216,248,0.5)">等待数据</div>
+                </div>
+                <div class="twin-panel teal">
+                    <div class="tp-icon">🫁</div>
+                    <div class="tp-label">血氧饱和度</div>
+                    <div><span class="tp-val" id="v-spo2">--</span><span class="tp-unit">%</span></div>
+                    <div class="tp-sub" id="v-spo2-status" style="color: rgba(200,216,248,0.5)">等待数据</div>
+                </div>
+                <div class="twin-panel blue">
+                    <div class="tp-icon">🌡️</div>
+                    <div class="tp-label">体温</div>
+                    <div><span class="tp-val" id="v-temp">--</span><span class="tp-unit">°C</span></div>
+                    <div class="tp-sub" id="v-temp-status" style="color: rgba(200,216,248,0.5)">等待数据</div>
+                </div>
+                <div class="twin-panel gold">
+                    <div class="tp-icon">🩸</div>
+                    <div class="tp-label">血压</div>
+                    <div><span class="tp-val" id="v-bp">--/--</span><span class="tp-unit">mmHg</span></div>
+                    <div class="tp-sub" id="v-bp-status" style="color: rgba(200,216,248,0.5)">等待数据</div>
+                </div>
+            </div>
+
+            <!-- Pressure + Body regions -->
+            <div class="pressure-3d-container">
+                <div id="pressure-3d-canvas"></div>
+                <div class="pressure-legend">
+                    <h4>🔬 身体区域压力分布</h4>
+                    <div id="body-regions">
+                        <div class="body-region">
+                            <span class="region-name">头颈部</span>
+                            <div class="region-bar">
+                                <div class="region-fill" id="r-head"
+                                    style="width:0%; background: linear-gradient(90deg,#43d9ad,#80ffe8);"></div>
+                            </div>
+                            <span class="region-val" id="rv-head">--</span>
+                        </div>
+                        <div class="body-region">
+                            <span class="region-name">肩部</span>
+                            <div class="region-bar">
+                                <div class="region-fill" id="r-shoulders"
+                                    style="width:0%; background: linear-gradient(90deg,#5a9cf5,#a0c4ff);"></div>
+                            </div>
+                            <span class="region-val" id="rv-shoulders">--</span>
+                        </div>
+                        <div class="body-region">
+                            <span class="region-name">背部</span>
+                            <div class="region-bar">
+                                <div class="region-fill" id="r-back"
+                                    style="width:0%; background: linear-gradient(90deg,#9e78d8,#c9b8ff);"></div>
+                            </div>
+                            <span class="region-val" id="rv-back">--</span>
+                        </div>
+                        <div class="body-region">
+                            <span class="region-name">臀部</span>
+                            <div class="region-bar">
+                                <div class="region-fill" id="r-hips"
+                                    style="width:0%; background: linear-gradient(90deg,#f4845f,#ffb347);"></div>
+                            </div>
+                            <span class="region-val" id="rv-hips">--</span>
+                        </div>
+                        <div class="body-region">
+                            <span class="region-name">腿部</span>
+                            <div class="region-bar">
+                                <div class="region-fill" id="r-legs"
+                                    style="width:0%; background: linear-gradient(90deg,#f9c74f,#ffe08a);"></div>
+                            </div>
+                            <span class="region-val" id="rv-legs">--</span>
+                        </div>
+                    </div>
+                    <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.06);">
+                        <div
+                            style="font-size:.7rem; text-transform:uppercase; letter-spacing:.08em; color:rgba(200,216,248,0.5); margin-bottom: 8px;">
+                            翻身统计</div>
+                        <div style="display: flex; gap: 20px; margin-top: 4px;">
+                            <div><span style="font-weight: 800; color: var(--healing-green); font-size:1.4rem;"
+                                    id="turn-count">0</span> <span
+                                    style="font-size:.75rem; color:rgba(200,216,248,0.5);">次翻身</span></div>
+                            <div><span style="font-weight: 600; color: rgba(200,216,248,0.6);" id="turn-last">--</span>
+                                <span style="font-size:.75rem; color:rgba(200,216,248,0.5);">上次翻身</span></div>
+                        </div>
+                    </div>
+                    <!-- Care message -->
+                    <div id="care-msg"
+                        style="margin-top:14px; padding: 10px 14px; background: rgba(249,199,79,0.08); border: 1px solid rgba(249,199,79,0.2); border-radius: 10px; font-size: 0.78rem; color: rgba(249,199,79,0.85); line-height:1.6;">
+                        💛 正在守护患者，一切安好
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Pressure Ulcer Prediction Panel -->
+            <div class="predict-panel">
+                <div class="predict-title">
+                    🧠 AI 压疮风险预测
+                    <span style="margin-left:auto;font-size:.65rem;color:rgba(200,216,248,.4);font-weight:400"
+                        id="predict-ts">--</span>
+                </div>
+                <div class="predict-grid">
+                    <div class="predict-card">
+                        <div class="pc-label">翻身倒计时</div>
+                        <div class="pc-val" id="pd-countdown" style="color:var(--healing-green)">--</div>
+                        <div class="pc-sub">分钟后需要翻身</div>
+                    </div>
+                    <div class="predict-card">
+                        <div class="pc-label">高风险区域</div>
+                        <div class="pc-val" id="pd-topzone" style="color:#f87171;font-size:1.2rem">--</div>
+                        <div class="pc-sub" id="pd-action">--</div>
+                    </div>
+                </div>
+                <div class="turn-alert" id="turn-alert">
+                    🚨 超过翻身建议时间！请尽快协助患者调整体位，预防压疮发生。
+                </div>
+                <div class="zone-list" id="pd-zones"></div>
+                <div
+                    style="margin-top:16px;font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:rgba(200,216,248,.4)">
+                    个性化翻身计划</div>
+                <div class="schedule-list" id="pd-schedule"></div>
+            </div>
+
+            <!-- Status bar -->
+
+            <div class="twin-status-bar">
+                <div class="status-item">
+                    <div class="status-dot online"></div> ESP32-S3 传感器
+                </div>
+                <div class="status-item">
+                    <div class="status-dot online"></div> 树莓派边缘网关
+                </div>
+                <div class="status-item">
+                    <div class="status-dot online"></div> MQTT Broker
+                </div>
+                <div class="status-item">
+                    <div class="status-dot online"></div> CNN 睡姿推理
+                </div>
+                <div class="status-item" id="update-time" style="color: rgba(200,216,248,0.4);">最后更新: --</div>
+            </div>
+
+            <!-- Care footer -->
+            <div class="care-footer">
+                <span>💝</span> 24小时智能守护，让爱不缺席 · 系统运行正常
+            </div>
+        </div>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script>
+        // ══════════════════════════════════════════════
+        //  Digital Twin — Warm Three.js Scene
+        // ══════════════════════════════════════════════
+        const container = document.getElementById('twin-canvas');
+        const scene = new THREE.Scene();
+        // Warm deep blue gradient bg
+        scene.background = new THREE.Color(0x0a1628);
+        scene.fog = new THREE.FogExp2(0x0a1628, 0.04);
+
+        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+        camera.position.set(6, 5, 8);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.localClippingEnabled = true; // needed for per-material clipping
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.3;
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.06;
+        controls.minDistance = 3;
+        controls.maxDistance = 20;
+        controls.target.set(0, 1, 0);
+
+        // ── Warm lighting ──
+        const ambientLight = new THREE.AmbientLight(0xfff0e0, 0.7);  // warm ambient
+        scene.add(ambientLight);
+        const dirLight = new THREE.DirectionalLight(0xfff8e8, 1.1);
+        dirLight.position.set(5, 9, 6);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.set(2048, 2048);
+        scene.add(dirLight);
+        // Healing green fill light
+        const healLight = new THREE.PointLight(0x43d9ad, 0.7, 18);
+        healLight.position.set(-3, 3, 2);
+        scene.add(healLight);
+        // Warm gold rim
+        const goldLight = new THREE.PointLight(0xf9c74f, 0.4, 14);
+        goldLight.position.set(2, 5, -4);
+        scene.add(goldLight);
+        // Soft pink accent
+        const pinkLight = new THREE.PointLight(0xffb3c6, 0.3, 10);
+        pinkLight.position.set(-1, 2, 4);
+        scene.add(pinkLight);
+
+        // ── Grid ──
+        const gridHelper = new THREE.GridHelper(20, 40, 0x112244, 0x0f1e35);
+        gridHelper.position.y = -0.01;
+        scene.add(gridHelper);
+
+        // ── Particle system (floating warm dots) ──
+        const particleGeo = new THREE.BufferGeometry();
+        const pCount = 180;
+        const pPos = new Float32Array(pCount * 3);
+        const pColors = new Float32Array(pCount * 3);
+        const warmColors = [
+            [1.0, 0.78, 0.31],  // gold
+            [0.26, 0.85, 0.68], // healing green
+            [0.96, 0.52, 0.37], // warm orange
+            [0.68, 0.50, 0.85], // soft plum
+            [1.0, 0.70, 0.76],  // soft pink
+        ];
+        for (let i = 0; i < pCount; i++) {
+            pPos[i * 3] = (Math.random() - 0.5) * 18;
+            pPos[i * 3 + 1] = Math.random() * 6 + 0.2;
+            pPos[i * 3 + 2] = (Math.random() - 0.5) * 18;
+            const c = warmColors[Math.floor(Math.random() * warmColors.length)];
+            pColors[i * 3] = c[0]; pColors[i * 3 + 1] = c[1]; pColors[i * 3 + 2] = c[2];
+        }
+        particleGeo.setAttribute('position', new THREE.Float32BufferAttribute(pPos, 3));
+        particleGeo.setAttribute('color', new THREE.Float32BufferAttribute(pColors, 3));
+        const particleMat = new THREE.PointsMaterial({ size: 0.06, vertexColors: true, transparent: true, opacity: 0.7 });
+        const particles = new THREE.Points(particleGeo, particleMat);
+        scene.add(particles);
+
+        // ── Bed model (warm materials) ──
+        const bedGroup = new THREE.Group();
+        const frameMat = new THREE.MeshStandardMaterial({ color: 0x2a3a5a, metalness: 0.6, roughness: 0.4 });
+        const mattressMat = new THREE.MeshStandardMaterial({ color: 0x5a8a6a, metalness: 0.0, roughness: 0.85 });
+
+        const frame = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.15, 4), frameMat);
+        frame.position.y = 0.8; frame.castShadow = true; frame.receiveShadow = true;
+        bedGroup.add(frame);
+
+        const legGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.8, 8);
+        [[-1, -1.8], [1, -1.8], [-1, 1.8], [1, 1.8]].forEach(([x, z]) => {
+            const leg = new THREE.Mesh(legGeo, frameMat);
+            leg.position.set(x, 0.4, z); leg.castShadow = true;
+            bedGroup.add(leg);
+        });
+
+        const mattress = new THREE.Mesh(new THREE.BoxGeometry(2, 0.2, 3.8), mattressMat);
+        mattress.position.y = 0.98; mattress.castShadow = true;
+        bedGroup.add(mattress);
+
+        // Blanket - warm tone
+        const blanketMat = new THREE.MeshStandardMaterial({ color: 0x8a6a4a, roughness: 0.9, metalness: 0 });
+        const blanket = new THREE.Mesh(new THREE.BoxGeometry(1.85, 0.06, 2.4), blanketMat);
+        blanket.position.set(0, 1.1, 0.7); bedGroup.add(blanket);
+
+        const backrestMat = new THREE.MeshStandardMaterial({ color: 0x3a6a5a, metalness: 0.1, roughness: 0.8 });
+        const backrest = new THREE.Mesh(new THREE.BoxGeometry(2, 0.08, 1.2), backrestMat);
+        backrest.position.set(0, 1.1, -1.3); bedGroup.add(backrest);
+
+        const pillowMat = new THREE.MeshStandardMaterial({ color: 0xf0e8d8, roughness: 0.9 }); // warm white pillow
+        const pillow = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.15, 0.5), pillowMat);
+        pillow.position.set(0, 1.15, -1.5); bedGroup.add(pillow);
+
+        const wheelMat = new THREE.MeshStandardMaterial({ color: 0x222233, metalness: 0.8 });
+        const wheelGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.06, 16);
+        [[-1, -1.8], [1, -1.8], [-1, 1.8], [1, 1.8]].forEach(([x, z]) => {
+            const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+            wheel.rotation.z = Math.PI / 2; wheel.position.set(x, 0.08, z);
+            bedGroup.add(wheel);
+        });
+
+        const railMat = new THREE.MeshStandardMaterial({ color: 0x505a70, metalness: 0.7, roughness: 0.3 });
+        [-1.15, 1.15].forEach(x => {
+            const rail = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.3, 2.5), railMat);
+            rail.position.set(x, 1.15, 0); bedGroup.add(rail);
+        });
+
+        scene.add(bedGroup);
+
+        // ── Heatmap plane ──
+        const heatmapGeo = new THREE.PlaneGeometry(1.8, 3.4, 8, 8);
+        const heatmapMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.72, side: THREE.DoubleSide });
+        const colors = [];
+        for (let i = 0; i < heatmapGeo.attributes.position.count; i++) colors.push(0.26, 0.85, 0.68);
+        heatmapGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+        const heatmapMesh = new THREE.Mesh(heatmapGeo, heatmapMat);
+        heatmapMesh.rotation.x = -Math.PI / 2; heatmapMesh.position.set(0, 1.1, 0); heatmapMesh.visible = false;
+        scene.add(heatmapMesh);
+
+        // ── Digital Human: load real .glb model via GLTFLoader ──
+        const bodyGroup = new THREE.Group();
+        scene.add(bodyGroup);
+
+        // Posture target rotations (model is loaded standing, we lay it on the bed)
+        // Base: rotate X by -PI/2 to lie flat; then adjust per posture
+        const POSTURE_ROT = {
+            supine:     { x: -Math.PI/2,  y: 0,           z: 0       },
+            prone:      { x: -Math.PI/2,  y: 0,           z: Math.PI },
+            left_side:  { x: -Math.PI/2,  y: -Math.PI/2,  z: 0       },
+            right_side: { x: -Math.PI/2,  y:  Math.PI/2,  z: 0       },
+            sitting:    { x: -Math.PI/4,  y: 0,           z: 0       }, // 45° incline = sitting up
+            empty:      { visible: false },
+        };
+
+        let mixer = null;
+        let modelLoaded = false;
+        let _currentPostureRot = { z: 0 };
+
+        // Loading indicator placed on bed while model loads
+        const loadingGeo = new THREE.SphereGeometry(0.18, 16, 16);
+        const loadingMat = new THREE.MeshStandardMaterial({ color: 0x43d9ad, transparent: true, opacity: 0.6, wireframe: true });
+        const loadingMesh = new THREE.Mesh(loadingGeo, loadingMat);
+        loadingMesh.position.set(0, 1.5, 0);
+        bodyGroup.add(loadingMesh);
+
+        // Attempt to load GLTF model
+        const gltfLoader = new THREE.GLTFLoader();
+        // Digital human model — self-hosted first (avoids CDN/CORS issues), CDN as fallback
+        const MODEL_URLS = [
+            '/models/patient.glb',
+            'https://threejs.org/examples/models/gltf/Michelle.glb',
+            'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/models/gltf/Michelle.glb',
+        ];
+
+        function tryLoadModel(urls, idx) {
+            if (idx >= urls.length) {
+                // All failed: keep loading placeholder visible
+                console.warn('All GLB model URLs failed, using fallback geometry.');
+                bodyGroup.remove(loadingMesh);
+                buildFallbackBody();
+                return;
+            }
+            gltfLoader.load(
+                urls[idx],
+                (gltf) => {
+                    bodyGroup.remove(loadingMesh);
+                    const model = gltf.scene;
+                    bodyGroup.rotation.set(0, 0, 0); // reset any pre-load posture rotation
+
+                    // Scale to fill bed (~3.5 units long)
+                    model.scale.setScalar(2.8);
+                    // Rotate -90° around X → character lies flat
+                    model.rotation.set(-Math.PI / 2, 0, 0);
+                    // Position: Z toward feet, Y raised slightly to prevent hand clipping
+                    model.position.set(0, 1.32, 1.5);
+
+
+                    // Enable shadows; keep original PBR texture (Chinese patient model)
+                    model.traverse((child) => {
+                        if (!child.isMesh) return;
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                    });
+
+                    // ── Finger curl only (if bones exist) ──
+                    model.traverse((child) => {
+                        if (!child.isBone) return;
+                        const n = child.name;
+                        if (_boneL === null && /LeftArm$/.test(n))  _boneL = child;
+                        if (_boneR === null && /RightArm$/.test(n)) _boneR = child;
+                    });
+
+                    bodyGroup.add(model);
+                    bodyGroup._model = model;
+                    modelLoaded = true;
+                    setupSittingGroup(model); // build the two-clip sitting rig
+
+                    // No animation
+
+                    console.log('Digital human model loaded:', urls[idx]);
+                },
+                undefined,
+                () => tryLoadModel(urls, idx + 1)
+            );
+        }
+
+        tryLoadModel(MODEL_URLS, 0);
+
+        // ── Sitting rig: lower body (legs flat) + upper body standing ──
+        function setupSittingGroup(model) {
+            if (sittingGroup) { bodyGroup.remove(sittingGroup); sittingGroup = null; }
+            sittingGroup = new THREE.Group();
+            const WAIST_Z = 0.0;   // world Z ≈ waist when patient lies flat
+            const WAIST_Y = 1.32;  // world Y of the lying model's Y position
+
+            // ── Lower body (legs): lying flat, show only Z > WAIST_Z
+            const lo = model.clone(true);
+            lo.scale.setScalar(2.8);
+            lo.rotation.set(-Math.PI / 2, 0, 0);
+            lo.position.set(0, WAIST_Y, 1.5);
+            const loClip = new THREE.Plane(new THREE.Vector3(0, 0, 1), WAIST_Z);
+            lo.traverse(c => {
+                if (c.isMesh && c.material) {
+                    c.material = c.material.clone();
+                    c.material.clippingPlanes = [loClip];
+                }
+            });
+            sittingGroup.add(lo);
+
+            // ── Upper body: standing upright, show only Y > WAIST_Y
+            const hi = model.clone(true);
+            hi.scale.setScalar(2.8);
+            hi.rotation.set(0, 0, 0); // standing
+            // Place so hip (local Y≈0.5) is at world (0, WAIST_Y, WAIST_Z)
+            hi.position.set(0, WAIST_Y - 0.5 * 2.8, WAIST_Z);
+            const hiClip = new THREE.Plane(new THREE.Vector3(0, 1, 0), -WAIST_Y);
+            hi.traverse(c => {
+                if (c.isMesh && c.material) {
+                    c.material = c.material.clone();
+                    c.material.clippingPlanes = [hiClip];
+                }
+            });
+            sittingGroup.add(hi);
+
+            sittingGroup.visible = false;
+            bodyGroup.add(sittingGroup);
+        }
+
+        // Fallback: simple stylised body if all URLs fail
+        function buildFallbackBody() {
+            const skinMat = new THREE.MeshStandardMaterial({ color: 0xc8876a, roughness: 0.75 });
+            const clothMat = new THREE.MeshStandardMaterial({ color: 0x8ab8d0, roughness: 0.9 });
+            const parts = [
+                { geo: new THREE.SphereGeometry(0.19, 16, 12), mat: skinMat, pos: [0, 1.42, -1.52] },
+                { geo: new THREE.CapsuleGeometry(0.28, 0.55, 6, 12), mat: clothMat, pos: [0, 1.22, -0.65], rot: [Math.PI / 2, 0, 0] },
+                { geo: new THREE.CapsuleGeometry(0.22, 0.30, 6, 12), mat: clothMat, pos: [0, 1.20, -0.10], rot: [Math.PI / 2, 0, 0] },
+                { geo: new THREE.CapsuleGeometry(0.09, 0.52, 6, 12), mat: clothMat, pos: [-0.15, 1.16, 0.68], rot: [Math.PI / 2, 0, 0] },
+                { geo: new THREE.CapsuleGeometry(0.09, 0.52, 6, 12), mat: clothMat, pos: [0.15, 1.16, 0.68], rot: [Math.PI / 2, 0, 0] },
+            ];
+            parts.forEach(p => {
+                const m = new THREE.Mesh(p.geo, p.mat);
+                m.position.set(...p.pos);
+                if (p.rot) m.rotation.set(...p.rot);
+                bodyGroup.add(m);
+            });
+            modelLoaded = true;
+        }
+
+        // ── Sensor spheres (warmer, glowing) ──
+        const sensorPositions = [
+            { pos: [0.4, 1.5, -0.8], color: 0xf4845f },
+            { pos: [-0.4, 1.5, -1.1], color: 0xf9c74f },
+            { pos: [0, 1.5, 0.2], color: 0x7ab3f5 },
+            { pos: [0, 1.05, 0], color: 0xa78bfa },
+        ];
+        const sensorMeshes = [];
+        sensorPositions.forEach(s => {
+            const geo = new THREE.SphereGeometry(0.065, 16, 16);
+            const mat = new THREE.MeshBasicMaterial({ color: s.color });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(...s.pos);
+            scene.add(mesh);
+            sensorMeshes.push({ mesh, color: s.color });
+        });
+
+        // ── Pressure 3D bar chart ──
+        const pressureScene = new THREE.Scene();
+        pressureScene.background = new THREE.Color(0x0a1628);
+        const pressureCam = new THREE.PerspectiveCamera(50, 1, 0.1, 50);
+        pressureCam.position.set(5, 6, 5);
+        pressureCam.lookAt(0, 0, 0);
+        const pressureRenderer = new THREE.WebGLRenderer({ antialias: true });
+        const pressureContainer = document.getElementById('pressure-3d-canvas');
+
+        function initPressure3D() {
+            pressureRenderer.setSize(pressureContainer.clientWidth, 280);
+            pressureRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            pressureContainer.appendChild(pressureRenderer.domElement);
+            pressureScene.add(new THREE.AmbientLight(0xfff0e0, 1.0));
+            const pd = new THREE.DirectionalLight(0xffffff, 0.9);
+            pd.position.set(3, 5, 3); pressureScene.add(pd);
+            pressureScene.add(new THREE.GridHelper(8, 8, 0x112244, 0x0f1e35));
+        }
+
+        const pressureBars = [];
+        function createPressureBars() {
+            pressureBars.forEach(b => pressureScene.remove(b)); pressureBars.length = 0;
+            for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+                const mat = new THREE.MeshStandardMaterial({ color: 0x43d9ad, metalness: 0.1, roughness: 0.6 });
+                const bar = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1, 0.8), mat);
+                bar.position.set(c - 3.5, 0.5, r - 3.5);
+                bar.scale.y = 0.01;
+                pressureScene.add(bar); pressureBars.push(bar);
+            }
+        }
+
+        function updatePressureBars(grid) {
+            if (!grid || !grid.length) return;
+            for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+                const idx = r * 8 + c;
+                if (idx >= pressureBars.length) continue;
+                const val = (grid[r] && grid[r][c]) ? grid[r][c] : 0;
+                const norm = val / 4095;
+                pressureBars[idx].scale.y = Math.max(0.01, norm * 3);
+                pressureBars[idx].position.y = pressureBars[idx].scale.y / 2;
+                // warm color: green → yellow → orange → red
+                const hue = (1 - norm) * 0.33;
+                pressureBars[idx].material.color.setHSL(hue, 0.85, 0.55);
+            }
+        }
+
+        initPressure3D(); createPressureBars();
+
+        // ── State ──
+        let autoRotate = false, pressureView = false;
+        let currentPosture = 'supine';
+        let latestVitals = {}, latestPressure = {};
+        let _boneL = null, _boneR = null; // arm bones cached at model load
+        let sittingGroup = null;           // two-clip sitting rig
+
+        function resetCamera() { camera.position.set(6, 5, 8); controls.target.set(0, 1, 0); }
+        function toggleAutoRotate() {
+            autoRotate = !autoRotate; controls.autoRotate = autoRotate; controls.autoRotateSpeed = 1.2;
+            document.getElementById('btn-rotate').classList.toggle('active', autoRotate);
+        }
+        function togglePressureView() {
+            pressureView = !pressureView; heatmapMesh.visible = pressureView;
+            document.getElementById('btn-pressure').classList.toggle('active', pressureView);
+        }
+        function updateBodyPosture(posture) {
+            currentPosture = posture;
+            if (posture === 'empty') {
+                bodyGroup.visible = false;
+                return;
+            }
+            bodyGroup.visible = true;
+            // Animate smooth rotation transition
+            const target = POSTURE_ROT[posture] || POSTURE_ROT.supine;
+            _currentPostureRot = target;
+
+            if (posture === 'sitting' && sittingGroup) {
+                // Clipping-plane sitting: show split rig, hide full model
+                if (bodyGroup._model) bodyGroup._model.visible = false;
+                sittingGroup.visible = true;
+            } else {
+                // Normal posture on full model
+                if (sittingGroup) sittingGroup.visible = false;
+                const pivot = bodyGroup._model || bodyGroup;
+                pivot.visible = true;
+                pivot.rotation.x = target.x !== undefined ? target.x : -Math.PI / 2;
+                pivot.rotation.y = target.y !== undefined ? target.y : 0;
+                pivot.rotation.z = target.z !== undefined ? target.z : 0;
+                pivot.position.x = 0;
+            }
+        }
+
+        function updateHeatmapColors(grid) {
+            if (!grid || !grid.length) return;
+            const ca = heatmapGeo.attributes.color;
+            for (let i = 0; i < ca.count; i++) {
+                const r = Math.min(Math.floor(i / 9), 7), c = Math.min(i % 9, 7);
+                const val = (grid[r] && grid[r][c]) ? grid[r][c] / 4095 : 0;
+                ca.setXYZ(i, val, 1 - val * 0.7, 0.2);
+            }
+            ca.needsUpdate = true;
+        }
+
+        // ── Simulation Engine ──
+        let simTime = 0;
+        let simPosture = 'supine';
+
+        function simVitals() {
+            simTime += 0.04;
+            const p = currentPosture;
+            // Baseline vitals vary by posture
+            const hrBase  = p === 'sitting' ? 82 : p === 'prone' ? 70 : 68;
+            const spo2Base = p === 'prone'  ? 96.5 : 97.5;
+            const bpBase  = p === 'sitting' ? 122  : 116;
+            const hr   = hrBase   + Math.sin(simTime * 0.28) * 4 + Math.sin(simTime * 1.1) * 2;
+            const spo2 = spo2Base + Math.sin(simTime * 0.19) * 0.8;
+            const temp = 36.7     + Math.sin(simTime * 0.07) * 0.2;
+            const bpS  = bpBase   + Math.sin(simTime * 0.17) * 5;
+            const bpD  = 75       + Math.sin(simTime * 0.21) * 3;
+            return {
+                heart_rate: hr, blood_oxygen: spo2, temperature: temp,
+                blood_pressure_sys: bpS, blood_pressure_dia: bpD,
+                sleep_posture: currentPosture, recorded_at: new Date().toISOString()
+            };
+        }
+
+        function simPressureGrid() {
+            const t = Date.now() * 0.001;
+            const p = currentPosture;
+            // Pressure maps per posture: rows 0=head→7=feet, cols 0=left→7=right
+            const maps = {
+                supine:     [[0,0,800,1400,1400,800,0,0],[0,600,1200,1600,1600,1200,600,0],[900,1800,2200,1400,1400,2200,1800,900],[400,1000,1600,1200,1200,1600,1000,400],[200,600,900,800,800,900,600,200],[600,1400,2400,2800,2800,2400,1400,600],[300,900,1200,900,900,1200,900,300],[0,200,1000,1800,1800,1000,200,0]],
+                prone:      [[0,0,600,1200,1200,600,0,0],[0,800,1800,2200,2200,1800,800,0],[1200,2000,2600,1600,1600,2600,2000,1200],[600,1200,1800,1400,1400,1800,1200,600],[400,800,1200,1000,1000,1200,800,400],[800,1200,1600,1200,1200,1600,1200,800],[200,600,800,600,600,800,600,200],[0,100,600,1200,1200,600,100,0]],
+                left_side:  [[0,200,600,800,400,0,0,0],[200,1200,2000,1600,800,200,0,0],[1600,2800,3000,2000,1000,400,100,0],[800,1800,2400,1600,800,200,0,0],[400,1200,1600,1000,400,100,0,0],[600,2000,3200,2400,1200,400,100,0],[200,1000,1600,1200,600,200,0,0],[0,200,1200,2000,1000,400,0,0]],
+                right_side: [[0,0,0,400,800,600,200,0],[0,0,200,800,1600,2000,1200,200],[0,100,400,1000,2000,3000,2800,1600],[0,0,200,800,1600,2400,1800,800],[0,0,100,400,1000,1600,1200,400],[0,100,400,1200,2400,3200,2000,600],[0,0,200,600,1200,1600,1000,200],[0,0,400,1000,2000,1200,200,0]],
+                sitting:    [[0,0,200,400,400,200,0,0],[0,200,600,800,800,600,200,0],[300,800,1200,1000,1000,1200,800,300],[200,600,1000,800,800,1000,600,200],[800,1800,2800,3200,3200,2800,1800,800],[600,1400,2200,2600,2600,2200,1400,600],[400,1000,1600,2000,2000,1600,1000,400],[0,200,800,1200,1200,800,200,0]],
+                empty:      Array(8).fill(Array(8).fill(0)),
+            };
+            const base = maps[p] || maps.supine;
+            return base.map((row, ri) => row.map(val => {
+                const breathe = 1 + Math.sin(t * 0.38 + ri * 0.28) * 0.04;
+                const noise = (Math.random() - 0.5) * val * 0.06;
+                return Math.max(0, Math.round(val * breathe + noise));
+            }));
+        }
+
+        // ── Data fetch (real API + always-on simulation) ──
+        async function fetchTwinData() {
+            const token = localStorage.getItem('token');
+            let gotVitals = false, gotPressure = false;
+
+            if (token) {
+                try {
+                    const r = await fetch('/api/vitals/1/latest', { headers: { Authorization: 'Bearer ' + token } });
+                    if (r.ok) {
+                        const d = await r.json();
+                        if (d && d.heart_rate) { latestVitals = d; updateVitalsDisplay(d); gotVitals = true; }
+                    }
+                } catch (e) { }
+
+                try {
+                    const pr = await fetch('/api/pressure/history/1?limit=1', { headers: { Authorization: 'Bearer ' + token } });
+                    if (pr.ok) {
+                        const pd = await pr.json();
+                        if (pd.length > 0 && pd[0].fabric_sensor_raw) {
+                            try {
+                                const grid = JSON.parse(pd[0].fabric_sensor_raw);
+                                latestPressure = grid; updateHeatmapColors(grid); updatePressureBars(grid); updateBodyRegions(grid);
+                                gotPressure = true;
+                            } catch (e) { }
+                        }
+                    }
+                } catch (e) { }
+            }
+
+            if (!gotVitals) { updateVitalsDisplay(simVitals()); }
+            if (!gotPressure) { const sg = simPressureGrid(); updateHeatmapColors(sg); updatePressureBars(sg); updateBodyRegions(sg); }
+        }
+
+        function updateVitalsDisplay(d) {
+            const hr = d.heart_rate, spo2 = d.blood_oxygen, temp = d.temperature;
+            const bpS = d.blood_pressure_sys, bpD = d.blood_pressure_dia;
+            const posture = d.sleep_posture || 'supine';
+
+            document.getElementById('v-hr').textContent = hr ? Math.round(hr) : '--';
+            document.getElementById('v-spo2').textContent = spo2 ? Math.round(spo2) : '--';
+            document.getElementById('v-temp').textContent = temp ? temp.toFixed(1) : '--';
+            document.getElementById('v-bp').textContent = (bpS && bpD) ? `${Math.round(bpS)}/${Math.round(bpD)}` : '--/--';
+
+            const hrOk = hr && hr > 59 && hr < 101;
+            const spo2Ok = spo2 && spo2 >= 93;
+            const tempOk = temp && temp <= 37.5;
+            const bpOk = bpS && bpS <= 140;
+
+            document.getElementById('v-hr-status').textContent = hr ? (hrOk ? '✅ 正常' : '⚠️ 注意') : '等待数据';
+            document.getElementById('v-spo2-status').textContent = spo2 ? (spo2Ok ? '✅ 正常' : '🚨 偏低') : '等待数据';
+            document.getElementById('v-temp-status').textContent = temp ? (tempOk ? '✅ 正常' : '⚠️ 偏高') : '等待数据';
+            document.getElementById('v-bp-status').textContent = bpS ? (bpOk ? '✅ 正常' : '⚠️ 偏高') : '等待数据';
+
+            // Set status colors
+            ['v-hr-status', 'v-spo2-status', 'v-temp-status', 'v-bp-status'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el.textContent.includes('⚠️') || el.textContent.includes('🚨')) {
+                    el.style.color = '#f9c74f';
+                } else if (el.textContent.includes('✅')) {
+                    el.style.color = '#43d9ad';
+                } else {
+                    el.style.color = 'rgba(200,216,248,0.5)';
+                }
+            });
+
+            // Posture
+            const pNames = { supine: '仰卧', prone: '俯卧', left_side: '左侧卧', right_side: '右侧卧', sitting: '坐起', empty: '离床' };
+            document.getElementById('posture-badge').textContent = `💤 姿态: ${pNames[posture] || posture}`;
+            updateBodyPosture(posture);
+
+            // Care message
+            const allOk = hrOk && spo2Ok && tempOk && bpOk;
+            const careMsg = document.getElementById('care-msg');
+            if (allOk) {
+                careMsg.textContent = '💛 各项体征良好，正在静静守护，安心休息';
+                careMsg.style.borderColor = 'rgba(249,199,79,0.2)';
+                careMsg.style.color = 'rgba(249,199,79,0.85)';
+            } else {
+                careMsg.textContent = '⚠️ 检测到体征异常，护理系统已自动响应';
+                careMsg.style.borderColor = 'rgba(244,132,95,0.35)';
+                careMsg.style.color = 'rgba(244,132,95,0.9)';
+            }
+
+            document.getElementById('update-time').textContent = '最后更新: ' + new Date(d.recorded_at).toLocaleTimeString('zh-CN');
+        }
+
+        function updateBodyRegions(grid) {
+            if (!grid || grid.length < 8) return;
+            const regions = {
+                head: avgRegion(grid, 0, 2, 2, 6), shoulders: avgRegion(grid, 2, 3, 1, 7),
+                back: avgRegion(grid, 3, 5, 2, 6), hips: avgRegion(grid, 5, 7, 2, 6),
+                legs: avgRegion(grid, 7, 8, 1, 7),
+            };
+            let maxP = 0;
+            Object.values(regions).forEach(v => { if (v > maxP) maxP = v; });
+            document.getElementById('risk-badge').textContent = maxP > 2000 ? '🔴 受压风险: 高' : maxP > 800 ? '🟡 受压风险: 中' : '🟢 受压风险: 低';
+            Object.entries(regions).forEach(([key, val]) => {
+                const pct = Math.min(100, (val / 4095) * 100);
+                const fill = document.getElementById('r-' + key);
+                const valEl = document.getElementById('rv-' + key);
+                if (fill) fill.style.width = pct + '%';
+                if (valEl) valEl.textContent = Math.round(val);
+            });
+        }
+
+        function avgRegion(grid, r1, r2, c1, c2) {
+            let sum = 0, count = 0;
+            for (let r = r1; r < Math.min(r2, grid.length); r++)
+                for (let c = c1; c < Math.min(c2, (grid[r] || []).length); c++) { sum += grid[r][c] || 0; count++; }
+            return count > 0 ? sum / count : 0;
+        }
+
+        // ── Animation loop ──
+        let frameCount = 0;
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            frameCount++;
+
+            const t = Date.now() * 0.001;
+
+            // Float particles slowly
+            const pa = particles.geometry.attributes.position;
+            for (let i = 0; i < pCount; i++) {
+                pa.array[i * 3 + 1] += Math.sin(t * 0.5 + i * 1.3) * 0.0008;
+                if (pa.array[i * 3 + 1] > 6.5) pa.array[i * 3 + 1] = 0.2;
+            }
+            pa.needsUpdate = true;
+            particles.rotation.y += 0.0005;
+
+            // Pulse sensor dots
+            sensorMeshes.forEach((s, i) => {
+                const scale = 1 + Math.sin(t * 2.5 + i * 1.5) * 0.28;
+                s.mesh.scale.set(scale, scale, scale);
+            });
+
+            // Update animation mixer (character animations)
+            if (mixer) mixer.update(0.016);
+            // Enforce arm pose every frame (overcomes SkinnedMesh bind-pose resets)
+            if (_boneL) _boneL.rotation.y =  0.5;
+            if (_boneR) _boneR.rotation.y = -0.5;
+
+            // Breathe body — gentle whole-body rise
+            if (bodyGroup.visible && currentPosture !== 'empty') {
+                const breathe = Math.sin(t * 0.38) * 0.008;
+                // Only adjust Y for bodyGroup container, not the model's internal position
+                const pivot = bodyGroup._model || bodyGroup;
+                if (!bodyGroup._model) bodyGroup.position.y = breathe;
+                else bodyGroup.position.y = 0; // model handles its own y via rotation
+            }
+
+            // Animate warm lights
+            healLight.intensity = 0.55 + Math.sin(t * 0.8) * 0.15;
+            goldLight.intensity = 0.3 + Math.sin(t * 0.6 + 1) * 0.1;
+
+            renderer.render(scene, camera);
+            pressureRenderer.render(pressureScene, pressureCam);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            pressureRenderer.setSize(pressureContainer.clientWidth, 280);
+        });
+
+        // Real data poll (10s)
+        fetchTwinData();
+        setInterval(fetchTwinData, 10000);
+
+        // Simulation tick (2s) — keeps heatmap & vitals alive even with no sensor
+        let simActive = true;
+        function simTick() {
+            if (simActive) {
+                updateVitalsDisplay(simVitals());
+                const sg = simPressureGrid();
+                updateHeatmapColors(sg); updatePressureBars(sg); updateBodyRegions(sg);
+            }
+        }
+        setInterval(simTick, 2000);
+
+        // ── AI Pressure Prediction Panel ──
+        const ZONE_LEVEL_LABELS = { high: '高危', medium: '中危', low: '低危', safe: '安全' };
+        const ZONE_LEVEL_CLASS = { high: 'z-high', medium: 'z-medium', low: 'z-low', safe: 'z-safe' };
+        let _postureMinutes = 60; // simulated time in current posture
+
+        async function refreshPredictionPanel() {
+            try {
+                const grid = simPressureGrid();
+                const token = localStorage.getItem('token');
+                const r = await fetch('/api/pressure/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ grid, posture: 'supine', posture_minutes: _postureMinutes })
+                });
+                if (!r.ok) return;
+                const d = await r.json();
+
+                // Countdown
+                const countdown = document.getElementById('pd-countdown');
+                countdown.textContent = d.minutes_until_turn;
+                countdown.style.color = d.minutes_until_turn < 20 ? '#f87171' : d.minutes_until_turn < 45 ? '#fbbf24' : '#43d9ad';
+
+                // Top risk zone
+                document.getElementById('pd-topzone').textContent = d.top_risk_zone ? d.top_risk_zone.name : '--';
+                document.getElementById('pd-action').textContent = d.recommended_action?.label || '--';
+
+                // Alert banner
+                document.getElementById('turn-alert').style.display = d.needs_immediate_turn ? 'block' : 'none';
+
+                // Zone list (top 4)
+                const zoneEl = document.getElementById('pd-zones');
+                zoneEl.innerHTML = d.zones.slice(0, 4).map(z => `
+                <div class="zone-row">
+                    <span style="flex:1;color:rgba(200,216,248,.8)">${z.name}</span>
+                    <div style="flex:2;background:rgba(255,255,255,.05);border-radius:4px;height:5px;overflow:hidden">
+                        <div style="width:${Math.min(z.norm_pct, 100)}%;height:100%;background:${z.level === 'high' ? '#f87171' : z.level === 'medium' ? '#fbbf24' : '#43d9ad'};border-radius:4px;transition:width .5s"></div>
+                    </div>
+                    <span class="zone-badge ${ZONE_LEVEL_CLASS[z.level]}">${ZONE_LEVEL_LABELS[z.level]}</span>
+                    <span style="font-size:.7rem;color:rgba(200,216,248,.4);min-width:32px;text-align:right">${z.norm_pct}%</span>
+                </div>`).join('');
+
+                // Timestamp
+                document.getElementById('predict-ts').textContent =
+                    '更新于 ' + new Date().toTimeString().slice(0, 5);
+
+            } catch (e) { /* non-critical */ }
+
+            // Load schedule too
+            try {
+                const patientId = window._twinPatientId || 1;
+                const token = localStorage.getItem('token');
+                const rs = await fetch(`/api/pressure/schedule/${patientId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (rs.ok) {
+                    const sched = await rs.json();
+                    const el = document.getElementById('pd-schedule');
+                    el.innerHTML = (sched.schedule || []).map(s => `
+                    <div class="sched-row">
+                        <span class="sched-time">${s.time}</span>
+                        <span style="color:rgba(200,216,248,.7)">${s.label}</span>
+                        <span style="margin-left:auto;font-size:.7rem;color:rgba(200,216,248,.35)">${s.due_in_minutes}min后</span>
+                    </div>`).join('');
+                }
+            } catch (e) { /* non-critical */ }
+        }
+
+        // Increment simulated posture time each cycle
+        setInterval(() => { _postureMinutes += 10 / 60; }, 10000);
+        refreshPredictionPanel();
+        setInterval(refreshPredictionPanel, 10000);
+
+        // ══════════════════════════════════════════════════════
+        //  VOICE ENGINE — 数字护士 Web Speech API
+        // ══════════════════════════════════════════════════════
+        let _headBone = null; // cached head bone reference
+        function findHeadBone(model) {
+            if (_headBone) return _headBone;
+            model.traverse(obj => {
+                if (obj.isBone && /head/i.test(obj.name)) _headBone = obj;
+            });
+            return _headBone;
+        }
+
+        let _lipAnimId = null;
+        function startLipAnim() {
+            document.getElementById('speaking-glow').style.display = 'block';
+            function lip() {
+                const t = Date.now() * 0.001;
+                const pivot = bodyGroup._model;
+                if (pivot) {
+                    const head = findHeadBone(pivot);
+                    if (head) {
+                        head.rotation.y = Math.sin(t * 7) * 0.025;
+                        head.rotation.x = Math.sin(t * 5) * 0.015;
+                    }
+                }
+                _lipAnimId = requestAnimationFrame(lip);
+            }
+            _lipAnimId = requestAnimationFrame(lip);
+        }
+        function stopLipAnim() {
+            if (_lipAnimId) { cancelAnimationFrame(_lipAnimId); _lipAnimId = null; }
+            document.getElementById('speaking-glow').style.display = 'none';
+            const pivot = bodyGroup._model;
+            if (pivot) {
+                const head = findHeadBone(pivot);
+                if (head) { head.rotation.y = 0; head.rotation.x = 0; }
+            }
+        }
+
+        function showBubble(text) {
+            document.getElementById('speech-text').textContent = text;
+            const b = document.getElementById('speech-bubble');
+            b.style.display = 'block';
+            // force reflow to restart animation
+            void b.offsetWidth;
+            b.style.animation = 'none';
+            void b.offsetWidth;
+            b.style.animation = '';
+        }
+        function hideBubble() {
+            document.getElementById('speech-bubble').style.display = 'none';
+        }
+
+        const VOICE = (() => {
+            const synth = window.speechSynthesis;
+            let muted = true; // start muted; user opts in
+            let speaking = false;
+            let queue = [];
+
+            function getVoice() {
+                const vs = synth.getVoices();
+                return vs.find(v => v.lang === 'zh-CN')
+                    || vs.find(v => v.lang.startsWith('zh'))
+                    || null;
+            }
+
+            function _next() {
+                if (!queue.length || speaking) return;
+                const text = queue.shift();
+                const u = new SpeechSynthesisUtterance(text);
+                u.lang = 'zh-CN'; u.rate = 0.93; u.pitch = 1.08;
+                const v = getVoice(); if (v) u.voice = v;
+                u.onstart = () => { speaking = true; showBubble(text); startLipAnim(); };
+                u.onend = u.onerror = () => {
+                    speaking = false; hideBubble(); stopLipAnim();
+                    setTimeout(_next, 600);
+                };
+                synth.speak(u);
+            }
+
+            return {
+                speak(text, priority = false) {
+                    if (muted) return;
+                    if (priority) { synth.cancel(); queue = [text]; speaking = false; }
+                    else queue.push(text);
+                    _next();
+                },
+                toggle() {
+                    muted = !muted;
+                    const btn = document.getElementById('btn-voice');
+                    if (muted) {
+                        synth.cancel(); queue = []; speaking = false;
+                        hideBubble(); stopLipAnim();
+                        btn.textContent = '🔇 语音护士'; btn.classList.remove('active');
+                    } else {
+                        btn.textContent = '🔊 语音护士'; btn.classList.add('active');
+                        // Greet on first enable
+                        this.speak('数字护士已上线，正在实时监测患者生命体征，请放心。');
+                    }
+                },
+                statusReport() {
+                    const hr = document.getElementById('v-hr').textContent;
+                    const spo2 = document.getElementById('v-spo2').textContent;
+                    const temp = document.getElementById('v-temp').textContent;
+                    const bp = document.getElementById('v-bp').textContent;
+                    const post = document.getElementById('posture-badge').textContent.replace('💤 姿态:', '').trim();
+                    const text = `当前体征报告：心率${hr}次每分钟，血氧饱和度${spo2}%，体温${temp}摄氏度，血压${bp}毫米汞柱，睡姿为${post}。`;
+                    if (muted) { alert('请先开启语音护士再播报。'); return; }
+                    this.speak(text, true);
+                },
+                get muted() { return muted; }
+            };
+        })();
+        window.VOICE = VOICE;
+
+        // ── Auto-announce on vital alert ──
+        const _alertCooldown = {}; // key → last announce timestamp
+        function checkAndAnnounce(vitals, predData) {
+            if (VOICE.muted) return;
+            const now = Date.now();
+            const cd = 5 * 60 * 1000; // 5-min cooldown per alert type
+
+            if (vitals.heart_rate && vitals.heart_rate > 100 && (!_alertCooldown.hr_high || now - _alertCooldown.hr_high > cd)) {
+                _alertCooldown.hr_high = now;
+                VOICE.speak(`注意，患者心率${Math.round(vitals.heart_rate)}次，偏高，请关注。`);
+            }
+            if (vitals.heart_rate && vitals.heart_rate < 55 && (!_alertCooldown.hr_low || now - _alertCooldown.hr_low > cd)) {
+                _alertCooldown.hr_low = now;
+                VOICE.speak(`注意，患者心率${Math.round(vitals.heart_rate)}次，偏低，请关注。`);
+            }
+            if (vitals.blood_oxygen && vitals.blood_oxygen < 93 && (!_alertCooldown.spo2 || now - _alertCooldown.spo2 > cd)) {
+                _alertCooldown.spo2 = now;
+                VOICE.speak(`警告！患者血氧饱和度${Math.round(vitals.blood_oxygen)}%，低于安全阈值，请立即处理！`, true);
+            }
+            if (vitals.temperature && vitals.temperature > 38.0 && (!_alertCooldown.temp || now - _alertCooldown.temp > cd)) {
+                _alertCooldown.temp = now;
+                VOICE.speak(`提醒，患者体温${vitals.temperature.toFixed(1)}摄氏度，存在发热情况。`);
+            }
+        }
+
+        // Patch fetchTwinData to call checkAndAnnounce after vitals update
+        const _origFetch = fetchTwinData;
+        // Wrap via interval override — hook into updateVitalsDisplay instead
+        const _origUpdateVitals = updateVitalsDisplay;
+        window.updateVitalsDisplay = function (d) {
+            _origUpdateVitals(d);
+            checkAndAnnounce(d, null);
+        };
+        // ══════════════════════════════════════════════
+        //  SOCKET.IO 实时联动 (树莓派 → 服务器 → 浏览器)
+        // ══════════════════════════════════════════════
+        try {
+            const socket = io();
+            socket.on('connect', () => {
+                console.log('[Socket.IO] 已连接，等待实时数据推送...');
+                // Update status bar to show live connection
+                const timeEl = document.getElementById('update-time');
+                if (timeEl) timeEl.style.color = '#43d9ad';
+            });
+            socket.on('disconnect', () => {
+                console.warn('[Socket.IO] 连接断开，回退到轮询模式');
+            });
+            socket.on('vitals_update', (data) => {
+                // Real hardware data arrived - stop simulation
+                simActive = false;
+                updateVitalsDisplay(data);
+                // Flash the update time green
+                const timeEl = document.getElementById('update-time');
+                if (timeEl) {
+                    timeEl.textContent = '🟢 实时数据: ' + new Date().toLocaleTimeString('zh-CN');
+                    timeEl.style.color = '#43d9ad';
+                }
+            });
+            socket.on('pressure_update', (data) => {
+                if (data.grid) {
+                    simActive = false;
+                    updateHeatmapColors(data.grid);
+                    updatePressureBars(data.grid);
+                    updateBodyRegions(data.grid);
+                }
+            });
+        } catch (e) {
+            console.warn('[Socket.IO] 不可用，使用轮询模式:', e.message);
+        }
+    </script>
+
+</body>
+
+</html>

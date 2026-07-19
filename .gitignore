@@ -1,0 +1,25 @@
+# 依赖
+node_modules/
+oh_modules/
+.hvigor/
+
+# 密钥与本地配置 — 绝不提交! 用 .env.example 作为模板
+.env
+hardware/local_secrets.py
+
+# 运行时数据 (server.js 启动时从 db/schema.sql + db/seed.sql 自动重建)
+db/nursing.db
+db/nursing.db-shm
+db/nursing.db-wal
+uploads/*
+!uploads/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+
+# 临时/日志
+*.log
+tmp_*
+.DS_Store
+.claude/

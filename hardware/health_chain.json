@@ -1,0 +1,81 @@
+[
+  {
+    "index": 0,
+    "timestamp": "2026-07-16 15:05:03",
+    "data": {
+      "type": "genesis",
+      "message": "智能护理病床健康数据链 - 创世区块",
+      "version": "1.0",
+      "created_by": "Smart Nursing Bed System"
+    },
+    "previous_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "nonce": 0,
+    "hash": "f9950f893b6d10b6914364c82018a3761d11ed2fac5aed46d49d09215e51f3c3"
+  },
+  {
+    "index": 1,
+    "timestamp": "2026-07-16 16:06:40",
+    "data": {
+      "type": "vital_record",
+      "patient_id": 1,
+      "timestamp": "2026-07-16 16:06:40",
+      "vital_hash": "9abdc5e45cac1967",
+      "summary": {
+        "hr": 72,
+        "spo2": 97,
+        "temp": 36.6,
+        "bp": "129/74",
+        "posture": "supine"
+      },
+      "anomalies": [],
+      "data_integrity": "sha256_verified"
+    },
+    "previous_hash": "f9950f893b6d10b6914364c82018a3761d11ed2fac5aed46d49d09215e51f3c3",
+    "nonce": 218,
+    "hash": "004ecf3367da355678a2eef36be84c3899b79d45a8ab329b391e44cde598aa3a"
+  },
+  {
+    "index": 2,
+    "timestamp": "2026-07-16 16:08:24",
+    "data": {
+      "type": "vital_record",
+      "patient_id": 1,
+      "timestamp": "2026-07-16 16:08:24",
+      "vital_hash": "9953a72f4435ff1d",
+      "summary": {
+        "hr": 74,
+        "spo2": 96,
+        "temp": 36.4,
+        "bp": "114/66",
+        "posture": "supine"
+      },
+      "anomalies": [],
+      "data_integrity": "sha256_verified"
+    },
+    "previous_hash": "004ecf3367da355678a2eef36be84c3899b79d45a8ab329b391e44cde598aa3a",
+    "nonce": 40,
+    "hash": "00f2a8a806b94f08fdf709960c262c1be12dbd31487f38f87c92f0b8835e5e7e"
+  },
+  {
+    "index": 3,
+    "timestamp": "2026-07-16 17:21:28",
+    "data": {
+      "type": "vital_record",
+      "patient_id": 1,
+      "timestamp": "2026-07-16 17:21:28",
+      "vital_hash": "32d914ba78cd1c0b",
+      "summary": {
+        "hr": 72,
+        "spo2": 97,
+        "temp": 36.3,
+        "bp": "125/74",
+        "posture": "supine"
+      },
+      "anomalies": [],
+      "data_integrity": "sha256_verified"
+    },
+    "previous_hash": "00f2a8a806b94f08fdf709960c262c1be12dbd31487f38f87c92f0b8835e5e7e",
+    "nonce": 380,
+    "hash": "00ed414aea28da4d4b489e863a94751f3ad1e040eed6bcca89be7e43829cd91b"
+  }
+]

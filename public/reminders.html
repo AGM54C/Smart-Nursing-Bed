@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能提醒 · 智能护理病床</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.88em' font-size='90'>⏰</text></svg>">
+    <style>
+        /* ── Page-level overrides for reminders ── */
+        .reminders-page { padding: 0; }
+        .page-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 24px;
+        }
+        .page-title-block h1 {
+            font-size: 1.5rem; font-weight: 800; letter-spacing: -.02em; color: var(--noir);
+        }
+        .page-title-block p { font-size: .85rem; color: var(--ash); margin-top: 3px; }
+
+        /* Stats row */
+        .stats-row {
+            display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: var(--white); border: 1px solid var(--cloud);
+            border-radius: var(--r-lg); padding: 16px; text-align: center;
+            transition: all .25s var(--ease);
+        }
+        .stat-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,.06); transform: translateY(-2px); }
+        .stat-card .sv { font-size: 1.7rem; font-weight: 800; letter-spacing: -.03em; }
+        .stat-card .sl { font-size: .72rem; color: var(--ash); margin-top: 3px; font-weight: 500; text-transform: uppercase; letter-spacing: .05em; }
+
+        /* Two-column grid */
+        .reminders-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+        }
+        .col-left { display: flex; flex-direction: column; gap: 20px; }
+
+        /* Reminder list items */
+        .reminder-item {
+            display: flex; align-items: center; gap: 14px;
+            padding: 14px 16px; border: 1px solid var(--cloud); border-radius: var(--r-lg);
+            margin-bottom: 10px; transition: all .2s var(--ease); background: var(--white);
+        }
+        .reminder-item:last-child { margin-bottom: 0; }
+        .reminder-item:hover { border-color: var(--teal-400); box-shadow: 0 2px 12px rgba(56,201,167,.1); }
+        .rem-badge {
+            width: 38px; height: 38px; border-radius: var(--r-md);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem; flex-shrink: 0;
+        }
+        .rem-badge.water    { background: var(--blue-50);  color: var(--blue-500);  }
+        .rem-badge.medicine { background: var(--plum-50);  color: var(--plum-500);  }
+        .rem-info { flex: 1; }
+        .rem-info .ri-title { font-size: .88rem; font-weight: 600; color: var(--noir); }
+        .rem-info .ri-meta  { font-size: .75rem; color: var(--ash); margin-top: 3px; }
+        .rem-info .ri-time  { font-weight: 700; color: var(--teal-500); }
+        .rem-actions { display: flex; gap: 6px; align-items: center; }
+        .toggle-btn {
+            width: 28px; height: 28px; border-radius: var(--r-full);
+            border: none; background: none; font-size: 1rem;
+            cursor: pointer; transition: transform .2s;
+        }
+        .toggle-btn:hover { transform: scale(1.2); }
+
+        /* Log items */
+        .log-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px 14px; border: 1px solid var(--cloud);
+            border-radius: var(--r-lg); margin-bottom: 8px; background: var(--white);
+        }
+        .log-item:last-child { margin-bottom: 0; }
+        .status-badge {
+            font-size: .72rem; font-weight: 600; padding: 3px 10px;
+            border-radius: var(--r-full); white-space: nowrap;
+        }
+        .s-pending   { background: var(--amber-50);  color: var(--amber-400); }
+        .s-notified  { background: var(--blue-50);   color: var(--blue-500); }
+        .s-completed { background: var(--green-50);  color: var(--green-500); }
+        .s-skipped   { background: var(--snow);      color: var(--ash); }
+        .s-missed    { background: var(--danger-bg); color: var(--danger); }
+
+        /* SSE status pill */
+        .sse-pill {
+            display: inline-flex; align-items: center; gap: 7px;
+            font-size: .78rem; padding: 6px 14px; border-radius: var(--r-full);
+            border: 1px solid var(--cloud); background: var(--snow);
+            color: var(--ash); font-weight: 500;
+        }
+        .sse-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ash); }
+        .sse-dot.on { background: var(--green-500); box-shadow: 0 0 6px rgba(34,197,94,.5); animation: pulse-dot 2s infinite; }
+
+        /* Form grid */
+        .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .full-col { grid-column: 1 / -1; }
+
+        /* Floating alert banner */
+        #alertBanner {
+            display: none; position: fixed; top: 24px; left: 50%; transform: translateX(-50%);
+            background: linear-gradient(135deg, var(--teal-600), var(--teal-400));
+            border-radius: var(--r-xl); padding: 18px 24px; z-index: 1200;
+            box-shadow: 0 12px 48px rgba(32,184,148,.35);
+            min-width: 360px; max-width: 500px;
+            animation: slide-alert .35s var(--spring);
+        }
+        @keyframes slide-alert {
+            from { opacity:0; transform: translateX(-50%) translateY(-24px); }
+            to   { opacity:1; transform: translateX(-50%) translateY(0); }
+        }
+        #alertBanner .ab-row { display: flex; align-items: center; gap: 14px; }
+        #alertBanner .ab-icon { font-size: 1.8rem; }
+        #alertBanner .ab-body { flex: 1; }
+        #alertBanner .ab-title { font-size: .9rem; font-weight: 700; color: #fff; }
+        #alertBanner .ab-text  { font-size: .8rem; color: rgba(255,255,255,.85); margin-top: 3px; }
+        #alertBanner .ab-close {
+            background: rgba(255,255,255,.2); border: none; color: #fff;
+            width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: .9rem;
+        }
+
+        .empty-state { text-align: center; padding: 32px; color: var(--ash); font-size: .85rem; }
+        .empty-state .emi { font-size: 2rem; margin-bottom: 8px; }
+
+        .spinner-inline {
+            width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.3);
+            border-top-color: white; border-radius: 50%;
+            animation: spin .6s linear infinite; display: inline-block; vertical-align: middle;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        audio { display: none; }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar scrolled">
+        <a href="/" class="navbar-brand">
+            <div class="mark">NB</div>智能护理病床
+        </a>
+        <div class="navbar-user">
+            <span id="nav-username" style="font-weight:500;font-size:.85rem;color:var(--ash)"></span>
+            <div class="navbar-avatar" id="nav-avatar"></div>
+            <button class="btn btn-outline btn-sm" onclick="logout()">退出</button>
+        </div>
+    </nav>
+
+    <!-- Floating Alert Banner -->
+    <div id="alertBanner">
+        <div class="ab-row">
+            <div class="ab-icon" id="alertIcon">⏰</div>
+            <div class="ab-body">
+                <div class="ab-title" id="alertTitle">提醒播报</div>
+                <div class="ab-text"  id="alertText"></div>
+            </div>
+            <button class="ab-close" onclick="dismissAlert()">✕</button>
+        </div>
+        <audio id="alertAudio" autoplay></audio>
+    </div>
+
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <div class="s-label">监护</div>
+                <nav class="sidebar-nav">
+                    <a href="dashboard.html"><span class="nav-icon">◉</span> 监护面板</a>
+                    <a href="reports.html"><span class="nav-icon">◈</span> 体检报告</a>
+                    <a href="records.html"><span class="nav-icon">◆</span> 病历档案</a>
+                    <a href="alerts.html"><span class="nav-icon">△</span> 预警管理</a>
+                    <a href="reminders.html" class="active"><span class="nav-icon">⏰</span> 智能提醒</a>
+                </nav>
+            </div>
+            <div class="sidebar-section">
+                <div class="s-label">智能</div>
+                <nav class="sidebar-nav">
+                    <a href="#" onclick="openAgentConsult()"><span class="nav-icon">⬢</span> AI 护理咨询</a>
+                    <a href="digital-twin.html"><span class="nav-icon">🔮</span> 数字孪生</a>
+                    <a href="voice-chat.html"><span class="nav-icon">🎙</span> 语音陪聊</a>
+                    <a href="family-concerns.html"><span class="nav-icon">💝</span> 患者关注</a>
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Main content -->
+        <main class="main-content">
+            <!-- Page header -->
+            <div class="page-header">
+                <div class="page-title-block">
+                    <h1>⏰ 智能提醒</h1>
+                    <p>到时自动语音播报 · 吃药 · 喝水 · 护理任务</p>
+                </div>
+                <div style="display:flex;gap:10px;align-items:center">
+                    <div class="sse-pill" id="sseStatus">
+                        <div class="sse-dot" id="sseDot"></div>
+                        <span id="sseText">未连接语音推送</span>
+                    </div>
+                    <button class="btn btn-teal btn-sm" id="sseToggleBtn" onclick="toggleSSE()">开启语音播报</button>
+                </div>
+            </div>
+
+            <!-- Patient selector -->
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
+                <span style="font-size:.83rem;color:var(--ash);font-weight:500;">选择病人：</span>
+                <select class="form-input" id="patientSelect" onchange="onPatientChange()" style="max-width:260px;padding:8px 12px;">
+                    <option value="">-- 加载中 --</option>
+                </select>
+                <button class="btn btn-outline btn-sm" onclick="loadLogs()">🔄 刷新日志</button>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-row" id="statsRow">
+                <div class="stat-card"><div class="sv" id="statTotal">—</div><div class="sl">今日总数</div></div>
+                <div class="stat-card"><div class="sv" style="color:var(--amber-400)" id="statPending">—</div><div class="sl">待执行</div></div>
+                <div class="stat-card"><div class="sv" style="color:var(--blue-500)"  id="statNotified">—</div><div class="sl">已播报</div></div>
+                <div class="stat-card"><div class="sv" style="color:var(--green-500)" id="statCompleted">—</div><div class="sl">已完成</div></div>
+                <div class="stat-card"><div class="sv" style="color:var(--danger)"    id="statMissed">—</div><div class="sl">已错过</div></div>
+            </div>
+
+            <!-- Two-column grid -->
+            <div class="reminders-grid">
+                <!-- Left column -->
+                <div class="col-left">
+                    <!-- Reminder plans -->
+                    <div class="card">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                            <div class="h3">📋 今日提醒计划</div>
+                        </div>
+                        <div id="reminderList">
+                            <div class="empty-state"><div class="emi">📭</div>请先选择病人</div>
+                        </div>
+                    </div>
+
+                    <!-- Add reminder form -->
+                    <div class="card">
+                        <div class="h3" style="margin-bottom:16px;">➕ 添加新提醒</div>
+                        <div class="form-grid-2">
+                            <div class="form-group">
+                                <label class="form-label">提醒类型</label>
+                                <select class="form-input" id="fType">
+                                    <option value="water">💧 喝水</option>
+                                    <option value="medicine">💊 吃药</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">执行时间</label>
+                                <input type="time" class="form-input" id="fTime" value="08:00">
+                            </div>
+                            <div class="form-group full-col">
+                                <label class="form-label">标题（简要描述）</label>
+                                <input type="text" class="form-input" id="fTitle" placeholder="例：早餐后服药" maxlength="60">
+                            </div>
+                            <div class="form-group full-col">
+                                <label class="form-label">剂量 / 数量</label>
+                                <input type="text" class="form-input" id="fDosage" placeholder="例：3片，饭后温水送服">
+                            </div>
+                            <div class="form-group full-col">
+                                <label class="form-label">备注说明</label>
+                                <textarea class="form-input" id="fDesc" rows="2" placeholder="可选补充说明" style="resize:vertical;"></textarea>
+                            </div>
+                        </div>
+                        <button class="btn btn-teal" style="margin-top:14px;width:100%;" onclick="createReminder()" id="createBtn">
+                            ✅ 创建提醒
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Right column: Today logs -->
+                <div class="card">
+                    <div class="h3" style="margin-bottom:16px;">📜 今日执行日志</div>
+                    <div id="logList">
+                        <div class="empty-state"><div class="emi">📭</div>请先选择病人</div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="js/auth.js"></script>
+    <script>
+    // ─── Auth guard ──────────────────────────────────────────
+    const token = localStorage.getItem('token');
+    if (!token) { location.href = 'login.html'; }
+    const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+
+    // ─── State ───────────────────────────────────────────────
+    let currentPatientId = null;
+    let sseSource = null;
+    let sseActive = false;
+    let alertTimeout = null;
+
+    // ─── Init ────────────────────────────────────────────────
+    async function init() {
+        // Set nav user
+        const user = getUser && getUser();
+        if (user) {
+            const el = document.getElementById('nav-username');
+            if (el) el.textContent = user.name || user.username || '';
+            const av = document.getElementById('nav-avatar');
+            if (av) av.textContent = (user.name || user.username || '?').charAt(0).toUpperCase();
+        }
+        await loadPatients();
+    }
+
+    async function loadPatients() {
+        try {
+            const r = await fetch('/api/patients', { headers });
+            const patients = await r.json();
+            const sel = document.getElementById('patientSelect');
+            sel.innerHTML = patients.map(p =>
+                `<option value="${p.id}">${p.name}（床${p.bed_number || '—'}）</option>`
+            ).join('');
+            if (patients.length > 0) {
+                currentPatientId = patients[0].id;
+                await loadAll();
+            }
+        } catch(e) { console.error('Load patients error:', e); }
+    }
+
+    function onPatientChange() {
+        currentPatientId = document.getElementById('patientSelect').value;
+        loadAll();
+    }
+
+    async function loadAll() {
+        if (!currentPatientId) return;
+        await Promise.all([loadReminders(), loadLogs(), loadStats()]);
+    }
+
+    // ─── Reminders CRUD ──────────────────────────────────────
+    async function loadReminders() {
+        const r = await fetch(`/api/reminders/${currentPatientId}`, { headers });
+        const list = await r.json();
+        const el = document.getElementById('reminderList');
+        if (!list.length) {
+            el.innerHTML = '<div class="empty-state"><div class="emi">📭</div>暂无提醒计划</div>';
+            return;
+        }
+        el.innerHTML = list.map(rem => {
+            const typeIcon = rem.reminder_type === 'water' ? '💧' : '💊';
+            const typeCls  = rem.reminder_type === 'water' ? 'water' : 'medicine';
+            const activeIcon = rem.is_active ? '🟢' : '⭕';
+            return `
+            <div class="reminder-item" id="rem-${rem.id}">
+                <div class="rem-badge ${typeCls}">${typeIcon}</div>
+                <div class="rem-info">
+                    <div class="ri-title">${rem.title}</div>
+                    <div class="ri-meta">
+                        <span class="ri-time">${rem.schedule_time}</span>
+                        ${rem.dosage ? ` · ${rem.dosage}` : ''}
+                        ${rem.description ? ` · ${rem.description}` : ''}
+                    </div>
+                </div>
+                <div class="rem-actions">
+                    <button class="toggle-btn" title="${rem.is_active ? '点击停用' : '点击启用'}"
+                        onclick="toggleReminder(${rem.id})">${activeIcon}</button>
+                    <button class="btn btn-sm" style="background:var(--danger-bg);color:var(--danger);border:none;"
+                        onclick="deleteReminder(${rem.id})">🗑</button>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    async function createReminder() {
+        if (!currentPatientId) { showToast && showToast('请先选择病人', 'warning'); return; }
+        const title = document.getElementById('fTitle').value.trim();
+        const scheduleTime = document.getElementById('fTime').value;
+        if (!title || !scheduleTime) { showToast && showToast('请填写标题和时间', 'warning'); return; }
+
+        const btn = document.getElementById('createBtn');
+        btn.innerHTML = '<span class="spinner-inline"></span> 创建中...';
+        btn.disabled = true;
+
+        try {
+            const r = await fetch('/api/reminders', {
+                method: 'POST', headers,
+                body: JSON.stringify({
+                    patient_id: currentPatientId,
+                    reminder_type: document.getElementById('fType').value,
+                    title,
+                    schedule_time: scheduleTime,
+                    dosage: document.getElementById('fDosage').value,
+                    description: document.getElementById('fDesc').value
+                })
+            });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.error);
+            document.getElementById('fTitle').value = '';
+            document.getElementById('fDosage').value = '';
+            document.getElementById('fDesc').value = '';
+            showToast && showToast('提醒已创建', 'success');
+            await loadAll();
+        } catch(e) {
+            showToast ? showToast('创建失败：' + e.message, 'error') : alert('创建失败：' + e.message);
+        } finally {
+            btn.innerHTML = '✅ 创建提醒';
+            btn.disabled = false;
+        }
+    }
+
+    async function toggleReminder(id) {
+        await fetch(`/api/reminders/${id}/toggle`, { method: 'PUT', headers });
+        await loadReminders();
+    }
+
+    async function deleteReminder(id) {
+        if (!confirm('确认删除此提醒？相关日志也将删除。')) return;
+        await fetch(`/api/reminders/${id}`, { method: 'DELETE', headers });
+        await loadAll();
+    }
+
+    // ─── Logs ────────────────────────────────────────────────
+    async function loadLogs() {
+        if (!currentPatientId) return;
+        const r = await fetch(`/api/reminders/logs/${currentPatientId}`, { headers });
+        const logs = await r.json();
+        const el = document.getElementById('logList');
+        if (!logs.length) {
+            el.innerHTML = '<div class="empty-state"><div class="emi">📋</div>今日暂无提醒日志</div>';
+            return;
+        }
+        const badgeMap = {
+            pending:   ['s-pending',   '待执行'],
+            notified:  ['s-notified',  '已播报'],
+            completed: ['s-completed', '已完成'],
+            skipped:   ['s-skipped',   '已跳过'],
+            missed:    ['s-missed',    '已错过']
+        };
+        el.innerHTML = logs.map(log => {
+            const typeIcon = log.reminder_type === 'water' ? '💧' : '💊';
+            const [cls, label] = badgeMap[log.status] || ['s-pending', '待执行'];
+            const timeStr = log.schedule_time || log.scheduled_time?.substring(11, 16) || '';
+            const canAct = log.status === 'pending' || log.status === 'notified';
+            return `
+            <div class="log-item">
+                <span style="font-size:1.25rem">${typeIcon}</span>
+                <div style="flex:1">
+                    <div style="font-size:.85rem;font-weight:600;color:var(--noir)">${log.title}</div>
+                    <div style="font-size:.75rem;color:var(--ash)">${timeStr}${log.dosage ? ' · '+log.dosage : ''}</div>
+                </div>
+                <span class="status-badge ${cls}">${label}</span>
+                ${canAct ? `
+                <button class="btn btn-teal btn-sm" onclick="markLog(${log.id},'complete')">✓ 完成</button>
+                <button class="btn btn-outline btn-sm" onclick="markLog(${log.id},'skip')">跳过</button>` : ''}
+            </div>`;
+        }).join('');
+    }
+
+    async function markLog(logId, action) {
+        await fetch(`/api/reminders/logs/${logId}/${action}`, { method: 'PUT', headers });
+        await loadAll();
+    }
+
+    // ─── Stats ───────────────────────────────────────────────
+    async function loadStats() {
+        if (!currentPatientId) return;
+        const r = await fetch(`/api/reminders/today/${currentPatientId}`, { headers });
+        const s = await r.json();
+        document.getElementById('statTotal').textContent     = s.total     || 0;
+        document.getElementById('statPending').textContent   = s.pending   || 0;
+        document.getElementById('statNotified').textContent  = s.notified  || 0;
+        document.getElementById('statCompleted').textContent = s.completed || 0;
+        document.getElementById('statMissed').textContent    = s.missed    || 0;
+    }
+
+    // ─── SSE ─────────────────────────────────────────────────
+    function toggleSSE() { sseActive ? disconnectSSE() : connectSSE(); }
+
+    function connectSSE() {
+        if (sseSource) sseSource.close();
+        const url = `/api/reminders/sse?patient_id=all&token=${encodeURIComponent(token)}`;
+        sseSource = new EventSource(url);
+        sseSource.addEventListener('connected', () => setSseStatus(true));
+        sseSource.addEventListener('reminder', e => {
+            const payload = JSON.parse(e.data);
+            showReminderAlert(payload);
+            setTimeout(() => loadAll(), 1500);
+        });
+        sseSource.onerror = () => setSseStatus(false);
+        sseActive = true;
+        document.getElementById('sseToggleBtn').textContent = '关闭语音播报';
+    }
+
+    function disconnectSSE() {
+        if (sseSource) { sseSource.close(); sseSource = null; }
+        sseActive = false;
+        setSseStatus(false);
+        document.getElementById('sseToggleBtn').textContent = '开启语音播报';
+    }
+
+    function setSseStatus(connected) {
+        document.getElementById('sseDot').className = 'sse-dot' + (connected ? ' on' : '');
+        document.getElementById('sseText').textContent = connected ? '语音播报监听中' : '未连接语音推送';
+    }
+
+    // ─── Alert Banner ────────────────────────────────────────
+    function showReminderAlert(payload) {
+        const banner = document.getElementById('alertBanner');
+        document.getElementById('alertIcon').textContent = payload.reminder_type === 'water' ? '💧' : '💊';
+        document.getElementById('alertTitle').textContent =
+            `${payload.patient_name} — ${payload.schedule_time} ${payload.reminder_type === 'water' ? '喝水提醒' : '用药提醒'}`;
+        document.getElementById('alertText').textContent = payload.tts_text;
+        banner.style.display = 'block';
+        clearTimeout(alertTimeout);
+        alertTimeout = setTimeout(dismissAlert, 15000);
+        payload.audio_base64 ? playAudioBase64(payload.audio_base64) : speakText(payload.tts_text);
+    }
+
+    function dismissAlert() {
+        document.getElementById('alertBanner').style.display = 'none';
+        const audio = document.getElementById('alertAudio');
+        audio.pause(); audio.src = '';
+        window.speechSynthesis && window.speechSynthesis.cancel();
+    }
+
+    function playAudioBase64(b64) {
+        try {
+            const audio = document.getElementById('alertAudio');
+            audio.src = `data:audio/mp3;base64,${b64}`;
+            audio.play().catch(() => speakText(document.getElementById('alertText').textContent));
+        } catch(e) {}
+    }
+
+    function speakText(text) {
+        window.speechSynthesis && window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = 'zh-CN'; u.rate = 0.9; u.pitch = 1.0;
+        window.speechSynthesis && window.speechSynthesis.speak(u);
+    }
+
+    // Stub for AI modal (referenced in sidebar)
+    function openAgentConsult() { alert('请从监护面板打开 AI 护理咨询'); }
+
+    // ─── Toast helper (if not provided by auth.js) ───────────
+    function showToast(msg, type) {
+        const c = document.getElementById('toast-container');
+        if (!c) return;
+        const t = document.createElement('div');
+        t.className = `toast toast-${type || 'info'}`;
+        t.textContent = msg;
+        c.appendChild(t);
+        setTimeout(() => t.remove(), 3000);
+    }
+
+    // ─── Bootstrap ───────────────────────────────────────────
+    init();
+    </script>
+</body>
+</html>

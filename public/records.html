@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>病历档案 · 智能护理病床</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.88em' font-size='90'>⚕</text></svg>">
+</head>
+
+<body>
+    <nav class="navbar scrolled">
+        <a href="/" class="navbar-brand">
+            <div class="mark">NB</div>智能护理病床
+        </a>
+        <div class="navbar-user">
+            <span id="nav-alert-badge"
+                style="background:var(--danger);color:#fff;padding:2px 10px;border-radius:var(--r-full);font-size:.72rem;font-weight:600;display:none;cursor:pointer"
+                onclick="location.href='alerts.html'"></span>
+            <span id="nav-username" style="font-weight:500;font-size:.85rem;color:var(--ash)"></span>
+            <div class="navbar-avatar" id="nav-avatar"></div>
+            <button class="btn btn-outline btn-sm" onclick="logout()">退出</button>
+        </div>
+    </nav>
+
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <div class="s-label">监护</div>
+                <nav class="sidebar-nav">
+                    <a href="dashboard.html"><span class="nav-icon">◉</span> 监护面板</a>
+                    <a href="reports.html"><span class="nav-icon">◈</span> 体检报告</a>
+                    <a href="records.html" class="active"><span class="nav-icon">◆</span> 病历档案</a>
+                    <a href="alerts.html"><span class="nav-icon">△</span> 预警管理</a>
+                    <a href="reminders.html"><span class="nav-icon">⏰</span> 智能提醒</a>
+                </nav>
+            </div>
+            <div class="sidebar-section">
+                <div class="s-label">智能</div>
+                <nav class="sidebar-nav">
+                    <a href="dashboard.html"><span class="nav-icon">⬢</span> AI 护理咨询</a>
+                    <a href="digital-twin.html"><span class="nav-icon">🔮</span> 数字孪生</a>
+                    <a href="voice-chat.html"><span class="nav-icon">🎙</span> 语音陪聊</a>
+                    <a href="family-concerns.html"><span class="nav-icon">💝</span> 患者关注</a>
+                </nav>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <div class="page-header">
+                <h1>病历档案</h1>
+                <p>患者基本信息、疾病详情与护理方案</p>
+            </div>
+            <div id="patient-selector" style="display:none;margin-bottom:20px;">
+                <select class="form-input" id="patient-select" style="max-width:300px"></select>
+            </div>
+            <div id="patient-detail">
+                <div class="empty-state">
+                    <div class="loading-spinner"></div>
+                    <p class="caption" style="margin-top:12px">加载病历…</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="toast-container" id="toast-container"></div>
+    <script src="js/auth.js"></script>
+    <script>
+        let allPatients = [];
+        document.addEventListener('DOMContentLoaded', async () => {
+            const u = getUser(); if (!u) return;
+            if (u.role === 'admin' || u.role === 'doctor') {
+                const r = await apiFetch('/api/patients'); if (!r) return; allPatients = await r.json();
+                const s = document.getElementById('patient-select'), sel = document.getElementById('patient-selector'); sel.style.display = 'block';
+                s.innerHTML = allPatients.map(p => `<option value="${p.id}">${p.name} — ${p.bed_number}</option>`).join('');
+                s.addEventListener('change', () => loadDetail(s.value));
+                if (allPatients.length) loadDetail(allPatients[0].id);
+            } else if (u.patient_id) { loadDetail(u.patient_id) }
+        });
+
+        async function loadDetail(pid) {
+            const r = await apiFetch(`/api/patients/${pid}`); if (!r) return;
+            const { patient, latestVitals, activeAlerts, agent } = await r.json();
+            const c = document.getElementById('patient-detail');
+            c.innerHTML = `
+    <div class="patient-banner" style="margin-bottom:24px">
+        <div class="patient-avatar" style="width:80px;height:80px;font-size:2rem;border-radius:var(--r-xl)">${patient.name.charAt(0)}</div>
+        <div class="patient-info" style="flex:1">
+            <h2 style="font-size:1.4rem">${patient.name}</h2>
+            <div class="patient-meta" style="margin-top:6px">
+                <span>${patient.age}岁 ${patient.gender}</span>
+                <span>${patient.room_number}房 ${patient.bed_number}号床</span>
+                <span>入院 ${formatDate(patient.admission_date)}</span>
+            </div>
+            <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+                <div class="agent-badge">${agent?.icon || '⚕'} ${agent?.display_name || '通用护理Agent'}</div>
+                ${activeAlerts > 0 ? `<span style="background:var(--danger-bg);color:var(--danger);padding:3px 12px;border-radius:var(--r-full);font-size:.76rem;font-weight:600">${activeAlerts} 个活跃报警</span>` : '<span style="background:var(--success-bg);color:var(--success);padding:3px 12px;border-radius:var(--r-full);font-size:.76rem;font-weight:600">状态正常</span>'}
+            </div>
+        </div>
+    </div>
+    <div class="grid-2">
+        <div class="card animate-in">
+            <div class="h3" style="margin-bottom:16px">疾病信息</div>
+            <div style="margin-bottom:14px">
+                <div class="caption" style="margin-bottom:3px">疾病类型</div>
+                <div style="font-size:1.05rem;font-weight:600;color:var(--teal-600)">${patient.disease_type}</div>
+            </div>
+            <div style="margin-bottom:14px">
+                <div class="caption" style="margin-bottom:3px">详细描述</div>
+                <div style="font-size:.88rem;color:var(--ash);line-height:1.7">${patient.disease_detail || '暂无详细描述'}</div>
+            </div>
+            <div>
+                <div class="caption" style="margin-bottom:3px">紧急联系人</div>
+                <div style="font-size:.88rem"><span style="font-weight:500">${patient.emergency_contact || '未设置'}</span>${patient.emergency_phone ? ` · <span style="color:var(--ash)">${patient.emergency_phone}</span>` : ''}</div>
+            </div>
+        </div>
+        <div class="card animate-in">
+            <div class="h3" style="margin-bottom:16px">AI 护理 Agent</div>
+            <div style="font-size:2.2rem;margin-bottom:10px">${agent?.icon || '⚕'}</div>
+            <div style="font-size:1.05rem;font-weight:600;margin-bottom:6px">${agent?.display_name || '通用护理Agent'}</div>
+            <div style="font-size:.85rem;color:var(--ash);line-height:1.7;margin-bottom:14px">${agent?.description || '全科护理智能助手'}</div>
+            ${agent?.vital_thresholds ? `<div class="caption" style="margin-bottom:6px">预警阈值</div><div style="display:flex;flex-wrap:wrap;gap:5px">${fmtThresh(agent.vital_thresholds)}</div>` : ''}
+        </div>
+    </div>
+    ${latestVitals ? `
+    <div class="card animate-in" style="margin-top:20px">
+        <div class="h3" style="margin-bottom:14px">最近一次生命体征</div>
+        <div class="caption" style="margin-bottom:12px">记录时间: ${formatDateTime(latestVitals.recorded_at)}</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px">
+            ${vBlock('♡ 心率', latestVitals.heart_rate, 'bpm', 'var(--coral-500)')}
+            ${vBlock('⊘ 血压', (latestVitals.blood_pressure_sys || '—') + '/' + (latestVitals.blood_pressure_dia || '—'), 'mmHg', 'var(--blue-500)')}
+            ${vBlock('◎ 血氧', latestVitals.blood_oxygen, '%', 'var(--teal-600)')}
+            ${vBlock('◇ 血糖', latestVitals.blood_glucose, 'mmol/L', 'var(--plum-500)')}
+            ${vBlock('◌ 体温', latestVitals.temperature, '°C', 'var(--amber-400)')}
+            ${vBlock('⊡ 睡姿', latestVitals.sleep_posture, '当前体位', 'var(--green-500)')}
+        </div>
+    </div>`: ''}`;
+        }
+
+        function vBlock(label, val, unit, c) { return `<div style="text-align:center;padding:14px;background:var(--snow);border-radius:var(--r-lg)"><div class="caption">${label}</div><div style="font-size:1.4rem;font-weight:800;color:${c};margin:4px 0">${val || '—'}</div><div class="caption">${unit}</div></div>` }
+
+        function fmtThresh(t) {
+            try {
+                const o = typeof t === 'string' ? JSON.parse(t) : t; const items = [];
+                if (o.heart_rate_min || o.heart_rate_max) items.push(`心率: ${o.heart_rate_min || '?'}-${o.heart_rate_max || '?'} bpm`);
+                if (o.blood_oxygen_min) items.push(`血氧: ≥${o.blood_oxygen_min}%`);
+                if (o.temperature_max) items.push(`体温: ≤${o.temperature_max}°C`);
+                if (o.bp_sys_max) items.push(`收缩压: ≤${o.bp_sys_max}`);
+                if (o.blood_glucose_min || o.blood_glucose_max) items.push(`血糖: ${o.blood_glucose_min || '?'}-${o.blood_glucose_max || '?'}`);
+                return items.map(i => `<span class="tag teal">${i}</span>`).join('')
+            } catch { return '' }
+        }
+    </script>
+</body>
+
+</html>

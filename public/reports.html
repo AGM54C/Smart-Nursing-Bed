@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>体检报告 · 智能护理病床</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.88em' font-size='90'>⚕</text></svg>">
+</head>
+
+<body>
+    <nav class="navbar scrolled">
+        <a href="/" class="navbar-brand">
+            <div class="mark">NB</div>智能护理病床
+        </a>
+        <div class="navbar-user">
+            <span id="nav-alert-badge"
+                style="background:var(--danger);color:#fff;padding:2px 10px;border-radius:var(--r-full);font-size:.72rem;font-weight:600;display:none;cursor:pointer"
+                onclick="location.href='alerts.html'"></span>
+            <span id="nav-username" style="font-weight:500;font-size:.85rem;color:var(--ash)"></span>
+            <div class="navbar-avatar" id="nav-avatar"></div>
+            <button class="btn btn-outline btn-sm" onclick="logout()">退出</button>
+        </div>
+    </nav>
+
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <div class="s-label">监护</div>
+                <nav class="sidebar-nav">
+                    <a href="dashboard.html"><span class="nav-icon">◉</span> 监护面板</a>
+                    <a href="reports.html" class="active"><span class="nav-icon">◈</span> 体检报告</a>
+                    <a href="records.html"><span class="nav-icon">◆</span> 病历档案</a>
+                    <a href="alerts.html"><span class="nav-icon">△</span> 预警管理</a>
+                    <a href="reminders.html"><span class="nav-icon">⏰</span> 智能提醒</a>
+                </nav>
+            </div>
+            <div class="sidebar-section">
+                <div class="s-label">智能</div>
+                <nav class="sidebar-nav">
+                    <a href="ai-chat.html"><span class="nav-icon">⬢</span> AI 护理咨询</a>
+                    <a href="digital-twin.html"><span class="nav-icon">🔮</span> 数字孪生</a>
+                    <a href="voice-chat.html"><span class="nav-icon">🎙</span> 语音陪聊</a>
+                    <a href="family-concerns.html"><span class="nav-icon">💝</span> 患者关注</a>
+                </nav>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <div class="page-header"
+                style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px">
+                <div>
+                    <h1>每日体检报告</h1>
+                    <p>AI 智能生成的个性化健康分析，可查看近 2 个月历史</p>
+                </div>
+                <div style="display:flex;gap:12px;align-items:center">
+                    <select class="form-input" id="patient-select" onchange="loadReports(this.value)"
+                        style="max-width:240px;display:none"></select>
+                    <button class="btn btn-teal btn-sm" onclick="generateReport()">AI 生成今日报告</button>
+                </div>
+            </div>
+
+            <div class="stats-row" id="report-stats">
+                <div class="stat-item">
+                    <div class="stat-value" id="stat-total">0</div>
+                    <div class="stat-label">报告总数</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="stat-avg-hr" style="color:var(--coral-500)">—</div>
+                    <div class="stat-label">平均心率</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="stat-avg-bp" style="color:var(--blue-500)">—</div>
+                    <div class="stat-label">平均血压</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="stat-risk" style="color:var(--green-500)">低</div>
+                    <div class="stat-label">风险等级</div>
+                </div>
+            </div>
+
+            <div id="reports-container">
+                <div class="empty-state">
+                    <div class="loading-spinner"></div>
+                    <p class="caption" style="margin-top:12px">加载报告…</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="toast-container" id="toast-container"></div>
+    <script src="js/auth.js"></script>
+    <script>
+        let currentPatientId = null;
+        document.addEventListener('DOMContentLoaded', async () => {
+            const u = getUser(); if (!u) return;
+            if (u.role === 'admin' || u.role === 'doctor') {
+                const r = await apiFetch('/api/patients'); if (!r) return; const ps = await r.json();
+                const s = document.getElementById('patient-select'); s.style.display = 'block';
+                s.innerHTML = ps.map(p => `<option value="${p.id}">${p.name} — ${p.disease_type}</option>`).join('');
+                currentPatientId = ps[0]?.id;
+            } else if (u.patient_id) { currentPatientId = u.patient_id }
+            if (currentPatientId) loadReports(currentPatientId);
+        });
+
+        async function loadReports(pid) {
+            currentPatientId = parseInt(pid);
+            const r = await apiFetch(`/api/reports/${pid}?months=2`); if (!r) return;
+            const reports = await r.json();
+            document.getElementById('stat-total').textContent = reports.length;
+            const c = document.getElementById('reports-container');
+            if (!reports.length) { c.innerHTML = `<div class="empty-state"><div class="empty-icon">◈</div><p>暂无体检报告</p><p class="caption" style="margin-top:6px">点击 "AI 生成今日报告" 生成第一份报告</p></div>`; return }
+            const latest = reports[0];
+            if (latest.vital_stats) { try { const s = JSON.parse(latest.vital_stats); document.getElementById('stat-avg-hr').textContent = s.avg_heart_rate || '—'; document.getElementById('stat-avg-bp').textContent = s.avg_bp || '—' } catch (e) { } }
+            if (latest.risk_assessment) { const el = document.getElementById('stat-risk'); if (latest.risk_assessment.includes('高')) { el.textContent = '高'; el.style.color = 'var(--danger)' } else if (latest.risk_assessment.includes('中')) { el.textContent = '中'; el.style.color = 'var(--warning)' } else { el.textContent = '低'; el.style.color = 'var(--green-500)' } }
+            c.innerHTML = reports.map(r => {
+                const rc = r.risk_assessment?.includes('高') ? 'high' : r.risk_assessment?.includes('中') ? 'medium' : 'low';
+                const rehab = r.rehab_suggestions ? r.rehab_suggestions.split('\n').filter(s => s.trim()).map(s => `<li>${s.replace(/^\d+[\.\、]\s*/, '')}</li>`).join('') : '';
+                return `<div class="report-card card animate-in">
+            <div class="report-header">
+                <div><div class="report-date">${r.report_date}</div><div style="font-size:.75rem;opacity:.6;margin-top:3px">${r.report_type === 'daily' ? '每日报告' : r.report_type} · AI 生成</div></div>
+                <span class="risk-badge ${rc}">${r.risk_assessment?.split(' - ')[0] || '未评估'}</span>
+            </div>
+            <div class="report-body">
+                <div class="report-section"><h4>健康摘要</h4><p>${r.summary || '暂无'}</p></div>
+                ${r.ai_diagnosis ? `<div class="report-section"><h4>AI 诊断分析</h4><p>${r.ai_diagnosis}</p></div>` : ''}
+                ${rehab ? `<div class="report-section"><h4>康复理疗建议</h4><ul>${rehab}</ul></div>` : ''}
+                ${r.risk_assessment ? `<div class="report-section"><h4>风险评估</h4><p>${r.risk_assessment}</p></div>` : ''}
+                <div style="text-align:right;margin-top:10px"><span class="caption">由 ${r.generated_by || 'AI'} 生成 · ${formatDateTime(r.created_at)}</span></div>
+            </div>
+        </div>`}).join('');
+        }
+
+        async function generateReport() {
+            if (!currentPatientId) { showToast('请先选择患者', 'warning'); return }
+            const btn = document.querySelector('[onclick="generateReport()"]');
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading-spinner" style="width:14px;height:14px;display:inline-block;vertical-align:middle;margin-right:6px"></span>AI 正在生成…';
+            showToast('正在调用 AI 生成报告，预计需要 10-30 秒…', 'info');
+
+            // 倒计时提示
+            let sec = 0;
+            const timer = setInterval(() => {
+                sec++;
+                btn.innerHTML = `<span class="loading-spinner" style="width:14px;height:14px;display:inline-block;vertical-align:middle;margin-right:6px"></span>AI 生成中 (${sec}s)`;
+            }, 1000);
+
+            try {
+                const r = await apiFetch('/api/reports/generate', { method: 'POST', body: JSON.stringify({ patient_id: currentPatientId }) });
+                clearInterval(timer);
+                btn.disabled = false;
+                btn.textContent = originalText;
+                if (!r) { showToast('请求失败，请检查网络', 'error'); return }
+                const d = await r.json();
+                if (d.error) { showToast('报告生成失败：' + d.error, 'error'); return }
+                showToast('✅ 今日体检报告已生成（同日重复生成会更新已有报告）', 'success');
+                loadReports(currentPatientId);
+            } catch(err) {
+                clearInterval(timer);
+                btn.disabled = false;
+                btn.textContent = originalText;
+                showToast('报告生成异常：' + err.message, 'error');
+            }
+        }
+    </script>
+</body>
+
+</html>

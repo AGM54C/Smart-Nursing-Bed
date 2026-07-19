@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 护理问答 · 智能护理病床</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#0d0d0d;color:#ececec;height:100vh;display:flex;overflow:hidden}
+
+/* ── 侧边栏 ── */
+#sidebar{width:260px;background:#171717;display:flex;flex-direction:column;border-right:1px solid #2a2a2a;flex-shrink:0}
+#sidebar-header{padding:16px 12px 10px;display:flex;align-items:center;gap:8px}
+#sidebar-header .logo{font-size:0.85rem;font-weight:600;color:#fff;flex:1}
+#sidebar-header a{color:#888;font-size:0.8rem;text-decoration:none;padding:4px 8px;border-radius:6px;transition:.15s}
+#sidebar-header a:hover{background:#232323;color:#fff}
+#new-chat-btn{margin:0 12px 10px;background:linear-gradient(135deg,#19c37d,#0ea5e9);border:none;color:#fff;padding:9px 0;border-radius:8px;cursor:pointer;font-size:0.85rem;font-weight:600;letter-spacing:.3px;transition:.2s}
+#new-chat-btn:hover{opacity:.9;transform:translateY(-1px)}
+#conv-list{flex:1;overflow-y:auto;padding:4px 8px}
+#conv-list::-webkit-scrollbar{width:4px}
+#conv-list::-webkit-scrollbar-thumb{background:#333;border-radius:4px}
+.conv-item{padding:9px 10px;border-radius:8px;cursor:pointer;font-size:0.82rem;color:#bbb;display:flex;align-items:center;gap:8px;transition:.15s;position:relative;margin-bottom:2px}
+.conv-item:hover,.conv-item.active{background:#232323;color:#fff}
+.conv-item .icon{font-size:1rem;flex-shrink:0}
+.conv-item .title{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.conv-item .del{display:none;background:none;border:none;color:#666;cursor:pointer;font-size:0.9rem;padding:2px 4px;border-radius:4px}
+.conv-item:hover .del{display:block}
+.conv-item .del:hover{color:#ef4444}
+#sidebar-footer{padding:12px;border-top:1px solid #232323}
+#sidebar-footer select{width:100%;background:#232323;border:1px solid #333;color:#ccc;padding:6px 8px;border-radius:7px;font-size:0.8rem;cursor:pointer}
+#sidebar-footer select option{background:#232323}
+
+/* ── 主区域 ── */
+#main{flex:1;display:flex;flex-direction:column;min-width:0}
+#chat-header{padding:14px 24px;border-bottom:1px solid #1e1e1e;display:flex;align-items:center;gap:12px;background:#111}
+#chat-header .agent-icon{font-size:1.5rem}
+#chat-header .agent-info h2{font-size:1rem;font-weight:600;color:#fff}
+#chat-header .agent-info p{font-size:0.75rem;color:#666}
+#chat-header .back-btn{margin-left:auto;color:#888;font-size:0.8rem;text-decoration:none;padding:6px 12px;border:1px solid #333;border-radius:6px;transition:.15s}
+#chat-header .back-btn:hover{color:#fff;border-color:#555}
+
+/* ── 消息区域 ── */
+#messages{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:20px}
+#messages::-webkit-scrollbar{width:5px}
+#messages::-webkit-scrollbar-thumb{background:#2a2a2a;border-radius:4px}
+.empty-state{margin:auto;text-align:center;color:#444}
+.empty-state .big-icon{font-size:3rem;margin-bottom:12px}
+.empty-state h3{font-size:1.1rem;color:#666;font-weight:400;margin-bottom:8px}
+.empty-state p{font-size:0.82rem;color:#444}
+.suggestion-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:24px}
+.chip{background:#1a1a1a;border:1px solid #2d2d2d;padding:8px 14px;border-radius:20px;font-size:0.8rem;color:#888;cursor:pointer;transition:.15s}
+.chip:hover{background:#232323;color:#ccc;border-color:#444}
+
+/* 消息气泡 */
+.msg-row{display:flex;gap:12px;max-width:820px;width:100%;margin:0 auto}
+.msg-row.user{flex-direction:row-reverse}
+.avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;margin-top:2px}
+.avatar.user-av{background:linear-gradient(135deg,#0ea5e9,#8b5cf6)}
+.avatar.ai-av{background:#232323;border:1px solid #333}
+.bubble{padding:12px 16px;border-radius:14px;line-height:1.75;font-size:0.9rem;max-width:calc(100% - 44px)}
+.user .bubble{background:linear-gradient(135deg,#0ea5e9,#0d8fd1);color:#fff;border-radius:14px 14px 4px 14px}
+.ai .bubble{background:#1a1a1a;border:1px solid #252525;color:#e5e5e5;border-radius:14px 14px 14px 4px}
+.ai .bubble .agent-label{font-size:0.72rem;color:#19c37d;font-weight:600;margin-bottom:6px;display:block}
+/* Markdown styles inside .bubble */
+.bubble h1,.bubble h2,.bubble h3{color:#fff;margin:12px 0 6px;font-size:1rem}
+.bubble strong{color:#fff}
+.bubble em{color:#bbb}
+.bubble ul,.bubble ol{padding-left:18px;margin:6px 0}
+.bubble li{margin:3px 0}
+.bubble code{background:#2a2a2a;padding:2px 6px;border-radius:4px;font-size:0.82rem;font-family:monospace}
+.bubble pre{background:#0a0a0a;padding:12px;border-radius:8px;overflow-x:auto;margin:8px 0}
+.bubble pre code{background:none;padding:0}
+.bubble p{margin:4px 0}
+.bubble hr{border:none;border-top:1px solid #2a2a2a;margin:10px 0}
+.bubble blockquote{border-left:3px solid #19c37d;padding-left:10px;color:#999;margin:6px 0}
+.cursor{display:inline-block;animation:blink 0.8s infinite;color:#19c37d}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+.thinking{color:#555;font-size:0.82rem;display:flex;align-items:center;gap:6px}
+.dots span{animation:blink 1.2s infinite;display:inline-block}
+.dots span:nth-child(2){animation-delay:.2s}
+.dots span:nth-child(3){animation-delay:.4s}
+
+/* ── 输入栏 ── */
+#input-area{padding:16px 24px 20px;background:#111;border-top:1px solid #1e1e1e}
+#input-bar{max-width:780px;margin:0 auto;background:#1a1a1a;border:1px solid #2d2d2d;border-radius:14px;display:flex;align-items:flex-end;gap:8px;padding:10px 12px;transition:.2s}
+#input-bar:focus-within{border-color:#19c37d44;box-shadow:0 0 0 3px #19c37d11}
+#user-input{flex:1;background:none;border:none;outline:none;color:#e5e5e5;font-size:0.9rem;font-family:inherit;resize:none;line-height:1.6;max-height:180px;min-height:24px}
+#user-input::placeholder{color:#444}
+#send-btn{background:linear-gradient(135deg,#19c37d,#0ea5e9);border:none;color:#fff;width:34px;height:34px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;transition:.2s;flex-shrink:0}
+#send-btn:hover:not(:disabled){transform:scale(1.05)}
+#send-btn:disabled{opacity:.4;cursor:not-allowed}
+#input-hint{max-width:780px;margin:6px auto 0;font-size:0.72rem;color:#3a3a3a;text-align:center}
+</style>
+</head>
+<body>
+<!-- ══ Sidebar ══ -->
+<div id="sidebar">
+  <div id="sidebar-header">
+    <span class="logo">🏥 智能护理AI</span>
+    <a href="dashboard.html">← 返回</a>
+  </div>
+  <button id="new-chat-btn" onclick="newConversation()">＋ 新对话</button>
+  <div id="conv-list"></div>
+  <div id="sidebar-footer">
+    <select id="patient-select" onchange="onPatientChange()">
+      <option value="">— 选择患者 —</option>
+    </select>
+  </div>
+</div>
+
+<!-- ══ Main ══ -->
+<div id="main">
+  <div id="chat-header">
+    <span class="agent-icon" id="h-icon">🤖</span>
+    <div class="agent-info">
+      <h2 id="h-name">AI 护理助手</h2>
+      <p id="h-desc">请先在左侧选择患者</p>
+    </div>
+  </div>
+  <div id="messages">
+    <div class="empty-state" id="empty-state">
+      <div class="big-icon">🤖</div>
+      <h3>AI 护理助手已就绪</h3>
+      <p>可以询问患者健康状况、护理建议、用药咨询等</p>
+      <div class="suggestion-chips">
+        <div class="chip" onclick="sendSuggestion(this)">今日体征是否正常？</div>
+        <div class="chip" onclick="sendSuggestion(this)">有哪些护理注意事项？</div>
+        <div class="chip" onclick="sendSuggestion(this)">当前睡姿有压疮风险吗？</div>
+        <div class="chip" onclick="sendSuggestion(this)">康复预后如何评估？</div>
+      </div>
+    </div>
+  </div>
+  <div id="input-area">
+    <div id="input-bar">
+      <textarea id="user-input" placeholder="输入问题，Shift+Enter 换行，Enter 发送…" rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+      <button id="send-btn" onclick="sendMessage()">↑</button>
+    </div>
+    <div id="input-hint">kimi-k2.5 · 回复可能需要 15–30 秒</div>
+  </div>
+</div>
+
+<script src="js/auth.js"></script>
+<script>
+// ── 状态 ──
+let sessions = JSON.parse(localStorage.getItem('ai_sessions') || '[]');
+let activeId = null;
+let patientId = null;
+let agentMeta = { name: 'AI护理助手', icon: '🤖' };
+let isStreaming = false;
+
+// ── 持久化 ──
+function saveSessions() { localStorage.setItem('ai_sessions', JSON.stringify(sessions)); }
+function getSession() { return sessions.find(s => s.id === activeId); }
+
+// ── 初始化 ──
+window.addEventListener('DOMContentLoaded', async () => {
+  // 从 dashboard 带过来的 patientId
+  const stored = sessionStorage.getItem('ai_patient_id');
+  await loadPatients(stored ? parseInt(stored) : null);
+  renderConvList();
+  if (sessions.length > 0) loadSession(sessions[0].id);
+});
+
+async function loadPatients(preselect) {
+  const token = localStorage.getItem('token');
+  if (!token) return;
+  try {
+    const res = await fetch('/api/patients', { headers: { 'Authorization': 'Bearer ' + token } });
+    const patients = await res.json();
+    const sel = document.getElementById('patient-select');
+    patients.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id; opt.textContent = `${p.name} (${p.disease_type})`;
+      sel.appendChild(opt);
+    });
+    if (preselect) { sel.value = preselect; onPatientChange(); }
+  } catch(e) {}
+}
+
+function onPatientChange() {
+  const sel = document.getElementById('patient-select');
+  patientId = sel.value ? parseInt(sel.value) : null;
+  sessionStorage.setItem('ai_patient_id', patientId || '');
+  fetchAgentMeta();
+}
+
+async function fetchAgentMeta() {
+  if (!patientId) return;
+  try {
+    const token = localStorage.getItem('token');
+    const p = await fetch(`/api/patients/${patientId}`, { headers: { 'Authorization': 'Bearer ' + token } }).then(r => r.json());
+    const a = await fetch(`/api/agents/${p.assigned_agent}`, { headers: { 'Authorization': 'Bearer ' + token } }).then(r => r.json());
+    agentMeta = { name: a.display_name || 'AI护理助手', icon: a.icon || '🤖' };
+  } catch(e) {}
+  document.getElementById('h-icon').textContent = agentMeta.icon;
+  document.getElementById('h-name').textContent = agentMeta.name;
+  document.getElementById('h-desc').textContent = patientId ? `患者 ID: ${patientId} · kimi-k2.5` : '请先在左侧选择患者';
+}
+
+// ── 对话管理 ──
+function newConversation() {
+  const session = { id: Date.now(), title: '新对话', messages: [], ts: Date.now() };
+  sessions.unshift(session);
+  saveSessions();
+  loadSession(session.id);
+  renderConvList();
+}
+
+function loadSession(id) {
+  activeId = id;
+  renderConvList();
+  const session = getSession();
+  if (!session) return;
+  const el = document.getElementById('messages');
+  el.innerHTML = '';
+  if (session.messages.length === 0) {
+    el.innerHTML = `<div class="empty-state" id="empty-state">
+      <div class="big-icon">🤖</div><h3>AI 护理助手已就绪</h3>
+      <p>可以询问患者健康状况、护理建议、用药咨询等</p>
+      <div class="suggestion-chips">
+        <div class="chip" onclick="sendSuggestion(this)">今日体征是否正常？</div>
+        <div class="chip" onclick="sendSuggestion(this)">有哪些护理注意事项？</div>
+        <div class="chip" onclick="sendSuggestion(this)">当前睡姿有压疮风险吗？</div>
+        <div class="chip" onclick="sendSuggestion(this)">康复预后如何评估？</div>
+      </div></div>`;
+  } else {
+    session.messages.forEach(m => appendMessageEl(m.role, m.content));
+    el.scrollTop = el.scrollHeight;
+  }
+}
+
+function deleteSession(id, e) {
+  e.stopPropagation();
+  sessions = sessions.filter(s => s.id !== id);
+  saveSessions();
+  if (activeId === id) { activeId = sessions.length > 0 ? sessions[0].id : null; if (activeId) loadSession(activeId); else clearMessages(); }
+  renderConvList();
+}
+
+function clearMessages() {
+  document.getElementById('messages').innerHTML = '';
+}
+
+function renderConvList() {
+  const el = document.getElementById('conv-list');
+  el.innerHTML = '';
+  if (sessions.length === 0) {
+    el.innerHTML = '<div style="padding:12px;color:#444;font-size:0.78rem;text-align:center">暂无对话记录</div>';
+    return;
+  }
+  sessions.forEach(s => {
+    const d = document.createElement('div');
+    d.className = 'conv-item' + (s.id === activeId ? ' active' : '');
+    d.innerHTML = `<span class="icon">💬</span><span class="title">${s.title}</span><button class="del" onclick="deleteSession(${s.id},event)" title="删除">✕</button>`;
+    d.addEventListener('click', () => loadSession(s.id));
+    el.appendChild(d);
+  });
+}
+
+// ── 消息渲染 ──
+function appendMessageEl(role, content) {
+  const el = document.getElementById('messages');
+  const empty = document.getElementById('empty-state');
+  if (empty) empty.remove();
+
+  const row = document.createElement('div');
+  row.className = 'msg-row ' + (role === 'user' ? 'user' : 'ai');
+
+  if (role === 'user') {
+    row.innerHTML = `
+      <div class="avatar user-av">👤</div>
+      <div class="bubble">${escHtml(content)}</div>`;
+  } else {
+    row.innerHTML = `
+      <div class="avatar ai-av">${agentMeta.icon}</div>
+      <div class="bubble">
+        <span class="agent-label">${agentMeta.icon} ${agentMeta.name}</span>
+        <div class="ai-content">${typeof marked !== 'undefined' ? marked.parse(content) : content}</div>
+      </div>`;
+  }
+  el.appendChild(row);
+  el.scrollTop = el.scrollHeight;
+  return row;
+}
+
+function createAiBubble() {
+  const el = document.getElementById('messages');
+  const empty = document.getElementById('empty-state');
+  if (empty) empty.remove();
+
+  const row = document.createElement('div');
+  row.className = 'msg-row ai';
+  row.innerHTML = `
+    <div class="avatar ai-av">${agentMeta.icon}</div>
+    <div class="bubble">
+      <span class="agent-label">${agentMeta.icon} ${agentMeta.name}</span>
+      <div class="ai-content thinking">
+        <span>AI 正在思考</span>
+        <span class="dots"><span>.</span><span>.</span><span>.</span></span>
+      </div>
+    </div>`;
+  el.appendChild(row);
+  el.scrollTop = el.scrollHeight;
+  return row.querySelector('.ai-content');
+}
+
+function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>'); }
+
+// ── 发送逻辑 ──
+function sendSuggestion(el) { document.getElementById('user-input').value = el.textContent; sendMessage(); }
+function handleKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }
+function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 180) + 'px'; }
+
+async function sendMessage() {
+  if (isStreaming) return;
+  const input = document.getElementById('user-input');
+  const question = input.value.trim();
+  if (!question) return;
+  if (!patientId) { alert('请先在左侧选择患者'); return; }
+
+  // 确保有活跃会话
+  if (!activeId) newConversation();
+  const session = getSession();
+
+  input.value = ''; autoResize(input);
+  document.getElementById('send-btn').disabled = true;
+  isStreaming = true;
+
+  // 1. 显示用户消息
+  appendMessageEl('user', question);
+  session.messages.push({ role: 'user', content: question });
+  if (session.title === '新对话') { session.title = question.slice(0, 22) + (question.length > 22 ? '…' : ''); }
+  saveSessions(); renderConvList();
+
+  // 2. 创建 AI 气泡
+  const contentEl = createAiBubble();
+  let fullContent = '';
+  let hasError = false;
+
+  try {
+    const token = localStorage.getItem('token');
+    const resp = await fetch('/api/agents/stream-chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ patient_id: patientId, messages: session.messages })
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    contentEl.innerHTML = '<span class="cursor">▋</span>';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n'); buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const msg = JSON.parse(line.slice(6));
+          if (msg.type === 'delta') {
+            fullContent += msg.content;
+            contentEl.innerHTML = (typeof marked !== 'undefined' ? marked.parse(fullContent) : fullContent.replace(/\n/g,'<br>')) + '<span class="cursor">▋</span>';
+            document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+          } else if (msg.type === 'error') {
+            contentEl.innerHTML = `<span style="color:#f87171">⚠️ ${msg.message}</span>`;
+            hasError = true;
+          } else if (msg.type === 'done') {
+            if (!hasError) contentEl.innerHTML = fullContent ? (typeof marked !== 'undefined' ? marked.parse(fullContent) : fullContent.replace(/\n/g,'<br>')) : '<span style="color:#f87171">⚠️ 未收到回复</span>';
+          }
+        } catch(e) {}
+      }
+    }
+  } catch(err) {
+    contentEl.innerHTML = `<span style="color:#f87171">⚠️ ${err.message}</span>`;
+    hasError = true;
+  }
+
+  // 保存 AI 回复到历史
+  if (fullContent && !hasError) {
+    session.messages.push({ role: 'assistant', content: fullContent });
+    saveSessions();
+  }
+
+  isStreaming = false;
+  document.getElementById('send-btn').disabled = false;
+  document.getElementById('user-input').focus();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "string": [
+    {
+      "name": "app_name",
+      "value": "智能护理病床"
+    },
+    {
+      "name": "module_desc",
+      "value": "Multi-Agent Nursing Swarm v4.0"
+    },
+    {
+      "name": "ability_desc",
+      "value": "智能护理病床鸿蒙控制终端"
+    }
+  ]
+}

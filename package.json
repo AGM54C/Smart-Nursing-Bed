@@ -1,0 +1,21 @@
+{
+  "name": "smart-nursing-bed",
+  "version": "1.0.0",
+  "description": "Smart Nursing Bed Cloud Platform - IoT Healthcare Monitoring",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^9.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.1.1",
+    "socket.io": "^4.8.3",
+    "ws": "^8.20.0"
+  }
+}

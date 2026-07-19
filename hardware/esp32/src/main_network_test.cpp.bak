@@ -1,0 +1,140 @@
+/**
+ * 网络连通性测试 - 跳过所有传感器初始化
+ *
+ * 用途: 验证 ESP32 能否连上 WiFi 和 MQTT,获取正确 IP
+ *
+ * 使用方法:
+ * 1. 在 platformio.ini 中临时改为: build_flags = -D NETWORK_TEST_ONLY
+ * 2. 或者直接把 src/main.cpp 重命名,把此文件重命名为 main.cpp
+ * 3. 上传并查看串口输出
+ */
+
+#include "config.h"
+#include <Arduino.h>
+#include <WiFi.h>
+#include <PubSubClient.h>
+
+WiFiClient wifiClient;
+PubSubClient mqttClient(wifiClient);
+
+// ─── WiFi 连接 ───
+bool wifi_connect() {
+  if (WiFi.status() == WL_CONNECTED)
+    return true;
+
+  Serial.printf("[WiFi] Connecting to %s", WIFI_SSID);
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+  int retries = 0;
+  while (WiFi.status() != WL_CONNECTED && retries < WIFI_MAX_RETRIES) {
+    delay(500);
+    Serial.print(".");
+    retries++;
+  }
+  Serial.println();
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.printf("✅ [WiFi] Connected!\n");
+    Serial.printf("   SSID: %s\n", WiFi.SSID().c_str());
+    Serial.printf("   IP:   %s\n", WiFi.localIP().toString().c_str());
+    Serial.printf("   RSSI: %d dBm\n", WiFi.RSSI());
+    Serial.printf("   Gateway: %s\n", WiFi.gatewayIP().toString().c_str());
+    return true;
+  } else {
+    Serial.println("❌ [WiFi] Connection FAILED!");
+    return false;
+  }
+}
+
+// ─── MQTT 连接 ───
+bool mqtt_connect() {
+  if (mqttClient.connected())
+    return true;
+
+  mqttClient.setServer(MQTT_BROKER, MQTT_PORT);
+
+  Serial.printf("[MQTT] Connecting to %s:%d ...\n", MQTT_BROKER, MQTT_PORT);
+
+  bool connected = mqttClient.connect(MQTT_CLIENT_ID);
+
+  if (connected) {
+    Serial.println("✅ [MQTT] Connected!");
+
+    // 发送测试消息
+    char testMsg[128];
+    snprintf(testMsg, sizeof(testMsg),
+             "{\"test\":\"ESP32 connected\",\"ip\":\"%s\"}",
+             WiFi.localIP().toString().c_str());
+    mqttClient.publish(TOPIC_VITALS, testMsg);
+    Serial.printf("   Published test message to %s\n", TOPIC_VITALS);
+
+    return true;
+  } else {
+    Serial.printf("❌ [MQTT] Failed, rc=%d\n", mqttClient.state());
+    Serial.println("   Error codes: -4=timeout, -3=conn lost, -2=connect failed, -1=disconnected");
+    return false;
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+  delay(2000);
+
+  Serial.println("\n\n");
+  Serial.println("╔════════════════════════════════════════════╗");
+  Serial.println("║  🔌 ESP32 网络连通性测试 (跳过传感器)      ║");
+  Serial.println("╚════════════════════════════════════════════╝\n");
+
+  Serial.printf("WiFi SSID:     %s\n", WIFI_SSID);
+  Serial.printf("MQTT Broker:   %s:%d\n", MQTT_BROKER, MQTT_PORT);
+  Serial.printf("MQTT Client:   %s\n\n", MQTT_CLIENT_ID);
+
+  // 只测试网络
+  if (wifi_connect()) {
+    delay(1000);
+    mqtt_connect();
+  }
+
+  Serial.println("\n═══ Test Complete ═══");
+  Serial.println("如果上面都是 ✅ ,说明网络没问题,可以继续调试传感器");
+  Serial.println("如果 WiFi ✅ 但 MQTT ❌ ,请检查:");
+  Serial.println("  1. 树莓派是否开机 (ssh pi@10.20.42.167)");
+  Serial.println("  2. Mosquitto 是否运行 (sudo systemctl status mosquitto)");
+  Serial.println("  3. IP 地址是否正确 (树莓派可能换了 IP)\n");
+}
+
+void loop() {
+  static unsigned long lastTest = 0;
+  unsigned long now = millis();
+
+  // 每 10 秒重新测试一次
+  if (now - lastTest >= 10000) {
+    Serial.println("\n─── Reconnection Test ───");
+
+    if (WiFi.status() != WL_CONNECTED) {
+      Serial.println("❌ WiFi disconnected, reconnecting...");
+      wifi_connect();
+    } else {
+      Serial.printf("✅ WiFi OK (IP: %s)\n", WiFi.localIP().toString().c_str());
+    }
+
+    if (!mqttClient.connected()) {
+      Serial.println("❌ MQTT disconnected, reconnecting...");
+      mqtt_connect();
+    } else {
+      Serial.println("✅ MQTT OK");
+
+      // 发送心跳
+      char msg[64];
+      snprintf(msg, sizeof(msg), "{\"uptime\":%lu}", millis()/1000);
+      mqttClient.publish("bed/heartbeat", msg);
+      Serial.println("   Heartbeat sent");
+    }
+
+    lastTest = now;
+  }
+
+  mqttClient.loop();
+  delay(10);
+}

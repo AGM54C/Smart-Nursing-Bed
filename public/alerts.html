@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>预警管理 · 智能护理病床</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.88em' font-size='90'>⚕</text></svg>">
+</head>
+
+<body>
+    <nav class="navbar scrolled">
+        <a href="/" class="navbar-brand">
+            <div class="mark">NB</div>智能护理病床
+        </a>
+        <div class="navbar-user">
+            <span id="nav-alert-badge"
+                style="background:var(--danger);color:#fff;padding:2px 10px;border-radius:var(--r-full);font-size:.72rem;font-weight:600;display:none;cursor:pointer"></span>
+            <span id="nav-username" style="font-weight:500;font-size:.85rem;color:var(--ash)"></span>
+            <div class="navbar-avatar" id="nav-avatar"></div>
+            <button class="btn btn-outline btn-sm" onclick="logout()">退出</button>
+        </div>
+    </nav>
+
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <div class="s-label">监护</div>
+                <nav class="sidebar-nav">
+                    <a href="dashboard.html"><span class="nav-icon">◉</span> 监护面板</a>
+                    <a href="reports.html"><span class="nav-icon">◈</span> 体检报告</a>
+                    <a href="records.html"><span class="nav-icon">◆</span> 病历档案</a>
+                    <a href="alerts.html" class="active"><span class="nav-icon">△</span> 预警管理</a>
+                    <a href="reminders.html"><span class="nav-icon">⏰</span> 智能提醒</a>
+                </nav>
+            </div>
+            <div class="sidebar-section">
+                <div class="s-label">智能</div>
+                <nav class="sidebar-nav">
+                    <a href="dashboard.html"><span class="nav-icon">⬢</span> AI 护理咨询</a>
+                    <a href="digital-twin.html"><span class="nav-icon">🔮</span> 数字孪生</a>
+                    <a href="voice-chat.html"><span class="nav-icon">🎙</span> 语音陪聊</a>
+                    <a href="family-concerns.html"><span class="nav-icon">💝</span> 患者关注</a>
+                </nav>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <div class="page-header">
+                <h1>预警管理</h1>
+                <p>生命体征异常预警记录与处理</p>
+            </div>
+
+            <div class="card"
+                style="margin-bottom:20px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:16px 20px">
+                <select class="form-input" id="filter-status" onchange="loadAlerts()" style="width:auto">
+                    <option value="">全部状态</option>
+                    <option value="active">待处理</option>
+                    <option value="acknowledged">已确认</option>
+                    <option value="resolved">已解除</option>
+                </select>
+                <select class="form-input" id="filter-patient" onchange="loadAlerts()"
+                    style="width:auto;display:none"></select>
+                <div style="flex:1"></div>
+                <div id="alert-summary" class="caption">加载中…</div>
+            </div>
+
+            <div class="stats-row" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
+                <div class="stat-item" style="border-left:3px solid var(--danger)">
+                    <div class="stat-value" id="stat-critical" style="color:var(--danger)">0</div>
+                    <div class="stat-label">严重告警</div>
+                </div>
+                <div class="stat-item" style="border-left:3px solid var(--warning)">
+                    <div class="stat-value" id="stat-warning" style="color:var(--warning)">0</div>
+                    <div class="stat-label">警告</div>
+                </div>
+                <div class="stat-item" style="border-left:3px solid var(--info)">
+                    <div class="stat-value" id="stat-info" style="color:var(--info)">0</div>
+                    <div class="stat-label">提示</div>
+                </div>
+            </div>
+
+            <div id="alerts-container">
+                <div class="empty-state">
+                    <div class="loading-spinner"></div>
+                    <p class="caption" style="margin-top:12px">加载预警…</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="toast-container" id="toast-container"></div>
+    <script src="js/auth.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const u = getUser(); if (!u) return;
+            if (u.role === 'admin' || u.role === 'doctor') {
+                const r = await apiFetch('/api/patients'); if (!r) return; const ps = await r.json();
+                const s = document.getElementById('filter-patient'); s.style.display = 'block';
+                s.innerHTML = '<option value="">全部患者</option>' + ps.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+            }
+            loadAlerts();
+        });
+
+        async function loadAlerts() {
+            const st = document.getElementById('filter-status').value, pid = document.getElementById('filter-patient')?.value || '';
+            let url = '/api/alerts?limit=100'; if (st) url += `&status=${st}`; if (pid) url += `&patient_id=${pid}`;
+            const r = await apiFetch(url); if (!r) return; const alerts = await r.json();
+            document.getElementById('stat-critical').textContent = alerts.filter(a => a.alert_type === 'critical').length;
+            document.getElementById('stat-warning').textContent = alerts.filter(a => a.alert_type === 'warning').length;
+            document.getElementById('stat-info').textContent = alerts.filter(a => a.alert_type === 'info').length;
+            const active = alerts.filter(a => a.status === 'active').length;
+            document.getElementById('alert-summary').textContent = `共 ${alerts.length} 条记录，${active} 条待处理`;
+            const c = document.getElementById('alerts-container');
+            if (!alerts.length) { c.innerHTML = `<div class="empty-state"><div class="empty-icon">✓</div><p>暂无预警记录</p><p class="caption" style="margin-top:6px">所有指标运行正常</p></div>`; return }
+            c.innerHTML = alerts.map(a => `
+        <div class="alert-item ${a.alert_type}" style="margin-bottom:10px;border-radius:var(--r-lg);padding:16px 18px;">
+            <span class="alert-icon">${a.alert_type === 'critical' ? '‼' : a.alert_type === 'warning' ? '!' : 'i'}</span>
+            <div class="alert-content" style="flex:1">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+                    <div><span style="font-weight:600;font-size:.88rem">${a.patient_name || '未知'}</span><span class="caption" style="margin-left:8px">${a.bed_number || ''} ${a.room_number ? a.room_number + '房' : ''}</span></div>
+                    <span style="font-size:.72rem;padding:2px 10px;border-radius:var(--r-full);font-weight:600;${a.status === 'active' ? 'background:var(--danger-bg);color:var(--danger)' : a.status === 'acknowledged' ? 'background:var(--warning-bg);color:var(--warning)' : 'background:var(--success-bg);color:var(--success)'}">${a.status === 'active' ? '待处理' : a.status === 'acknowledged' ? '已确认' : '已解除'}</span>
+                </div>
+                <div class="alert-msg" style="font-size:.87rem;margin-bottom:6px">${a.message}</div>
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                    <div class="caption">${a.metric || ''}: ${a.value || ''} ${a.threshold ? `(阈值 ${a.threshold})` : ''} · ${formatDateTime(a.created_at)}</div>
+                    <div class="alert-actions">
+                        ${a.status === 'active' ? `<button class="btn btn-sm btn-outline" onclick="ackAlert(${a.id})">确认</button><button class="btn btn-sm btn-teal" onclick="resAlert(${a.id})">解除</button>` : a.status === 'acknowledged' ? `<button class="btn btn-sm btn-teal" onclick="resAlert(${a.id})">解除</button>` : ''}
+                    </div>
+                </div>
+            </div>
+        </div>`).join('');
+        }
+
+        async function ackAlert(id) { const r = await apiFetch(`/api/alerts/${id}/acknowledge`, { method: 'PUT' }); if (r?.ok) { showToast('已确认', 'success'); loadAlerts() } }
+        async function resAlert(id) { const r = await apiFetch(`/api/alerts/${id}/resolve`, { method: 'PUT' }); if (r?.ok) { showToast('已解除', 'success'); loadAlerts() } }
+    </script>
+</body>
+
+</html>

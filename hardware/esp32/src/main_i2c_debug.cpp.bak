@@ -1,0 +1,164 @@
+/**
+ * I2C 底层读写测试 - 诊断 MLX90614 和 MPU6050
+ */
+
+#include <Arduino.h>
+#include <Wire.h>
+
+void setup() {
+  Serial.begin(115200);
+  delay(2000);
+
+  Serial.println("\n╔═══════════════════════════════╗");
+  Serial.println("║  I2C 底层寄存器读取测试       ║");
+  Serial.println("╚═══════════════════════════════╝\n");
+
+  Wire.begin(2, 1);  // SDA=2, SCL=1
+  Wire.setClock(100000);
+  Serial.println("✅ I2C 初始化完成 (100kHz)\n");
+
+  // ========== 测试 MLX90614 (0x5A) ==========
+  Serial.println("─── MLX90614 (0x5A) 测试 ───");
+
+  Wire.beginTransmission(0x5A);
+  byte error = Wire.endTransmission();
+
+  if (error == 0) {
+    Serial.println("✅ 地址 0x5A 应答正常");
+
+    // 尝试读取设备 ID (寄存器 0x1E)
+    Wire.beginTransmission(0x5A);
+    Wire.write(0x1E);  // ID 寄存器
+    error = Wire.endTransmission(false);  // 保持连接
+
+    if (error == 0) {
+      Wire.requestFrom(0x5A, 3);
+      if (Wire.available() >= 3) {
+        uint8_t id_low = Wire.read();
+        uint8_t id_high = Wire.read();
+        uint8_t pec = Wire.read();
+        uint16_t device_id = (id_high << 8) | id_low;
+        Serial.printf("  设备 ID: 0x%04X (PEC: 0x%02X)\n", device_id, pec);
+
+        if (device_id == 0x0000 || device_id == 0xFFFF) {
+          Serial.println("  ⚠️ 设备 ID 异常,可能是假芯片或损坏");
+        } else {
+          Serial.println("  ✅ 设备 ID 正常");
+        }
+      } else {
+        Serial.println("  ❌ 寄存器读取失败 (无数据返回)");
+      }
+    } else {
+      Serial.printf("  ❌ 寄存器写入失败 (错误码: %d)\n", error);
+    }
+
+    // 尝试读取环境温度 (寄存器 0x06)
+    Wire.beginTransmission(0x5A);
+    Wire.write(0x06);
+    error = Wire.endTransmission(false);
+
+    if (error == 0) {
+      Wire.requestFrom(0x5A, 3);
+      if (Wire.available() >= 3) {
+        uint8_t temp_low = Wire.read();
+        uint8_t temp_high = Wire.read();
+        uint8_t pec = Wire.read();
+        uint16_t raw_temp = (temp_high << 8) | temp_low;
+        float temp = raw_temp * 0.02 - 273.15;
+        Serial.printf("  环境温度: %.2f°C (原始值: 0x%04X)\n", temp, raw_temp);
+      } else {
+        Serial.println("  ❌ 温度寄存器读取失败");
+      }
+    }
+  } else {
+    Serial.printf("❌ 地址 0x5A 无响应 (错误码: %d)\n", error);
+  }
+
+  Serial.println();
+
+  // ========== 测试 MPU6050 (0x68) ==========
+  Serial.println("─── MPU6050 (0x68) 测试 ───");
+
+  Wire.beginTransmission(0x68);
+  error = Wire.endTransmission();
+
+  if (error == 0) {
+    Serial.println("✅ 地址 0x68 应答正常");
+
+    // 读取 WHO_AM_I 寄存器 (0x75)
+    Wire.beginTransmission(0x68);
+    Wire.write(0x75);
+    error = Wire.endTransmission(false);
+
+    if (error == 0) {
+      Wire.requestFrom(0x68, 1);
+      if (Wire.available()) {
+        uint8_t who_am_i = Wire.read();
+        Serial.printf("  WHO_AM_I: 0x%02X ", who_am_i);
+
+        if (who_am_i == 0x68) {
+          Serial.println("✅ (正确,MPU6050)");
+        } else if (who_am_i == 0x00 || who_am_i == 0xFF) {
+          Serial.println("❌ (读取失败/总线浮空)");
+        } else {
+          Serial.printf("⚠️ (可能是 MPU6500/9250: 0x%02X)\n", who_am_i);
+        }
+      } else {
+        Serial.println("  ❌ WHO_AM_I 读取失败 (无数据)");
+      }
+    } else {
+      Serial.printf("  ❌ 寄存器写入失败 (错误码: %d)\n", error);
+    }
+
+    // 尝试唤醒设备 (写 PWR_MGMT_1 = 0x00)
+    Wire.beginTransmission(0x68);
+    Wire.write(0x6B);  // PWR_MGMT_1
+    Wire.write(0x00);  // 唤醒
+    error = Wire.endTransmission();
+
+    if (error == 0) {
+      Serial.println("  ✅ 唤醒命令发送成功");
+      delay(100);
+
+      // 读取加速度计 X 轴 (0x3B-0x3C)
+      Wire.beginTransmission(0x68);
+      Wire.write(0x3B);
+      error = Wire.endTransmission(false);
+
+      if (error == 0) {
+        Wire.requestFrom(0x68, 2);
+        if (Wire.available() >= 2) {
+          int16_t ax = (Wire.read() << 8) | Wire.read();
+          Serial.printf("  加速度 X 轴: %d (原始值)\n", ax);
+
+          if (ax == 0 || ax == -1) {
+            Serial.println("  ⚠️ 读数异常,传感器可能未唤醒");
+          } else {
+            Serial.println("  ✅ 数据读取正常");
+          }
+        } else {
+          Serial.println("  ❌ 加速度读取失败");
+        }
+      }
+    } else {
+      Serial.printf("  ❌ 唤醒命令失败 (错误码: %d)\n", error);
+    }
+  } else {
+    Serial.printf("❌ 地址 0x68 无响应 (错误码: %d)\n", error);
+  }
+
+  Serial.println("\n═══════════════════════════════");
+  Serial.println("诊断完成。按 RST 重新测试\n");
+
+  Serial.println("I2C 错误码说明:");
+  Serial.println("  0 = 成功");
+  Serial.println("  1 = 数据太长,缓冲区溢出");
+  Serial.println("  2 = 地址发送时收到 NACK");
+  Serial.println("  3 = 数据发送时收到 NACK");
+  Serial.println("  4 = 其他错误");
+  Serial.println("  5 = 超时");
+}
+
+void loop() {
+  delay(1000);
+}
