@@ -425,46 +425,65 @@ function drawPressureHeatmap(grid) {
     const ctx = canvas.getContext('2d');
     const rows = grid.length;
     const cols = grid[0]?.length || 8;
-    const cellW = canvas.width / cols;
-    const cellH = canvas.height / rows;
+
+    // 8×8 原始格 → 离屏小画布逐像素上色 → 平滑放大 (双线性), 呈现连续压力场
+    const off = document.createElement('canvas');
+    off.width = cols; off.height = rows;
+    const octx = off.getContext('2d');
+    const img = octx.createImageData(cols, rows);
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            const norm = Math.min((grid[r][c] || 0) / 4095, 1.0);
+            const [cr, cg, cb] = turboColor(norm);
+            const i = (r * cols + c) * 4;
+            img.data[i] = cr; img.data[i + 1] = cg; img.data[i + 2] = cb; img.data[i + 3] = 255;
+        }
+    }
+    octx.putImageData(img, 0, 0);
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(off, 0, 0, canvas.width, canvas.height);
 
+    // 仅标注高压风险点 (>2000), 避免满屏数字干扰
+    const cellW = canvas.width / cols, cellH = canvas.height / rows;
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
     for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
             const val = grid[r][c] || 0;
-            const norm = Math.min(val / 4095, 1.0);
-            ctx.fillStyle = pressureColor(norm);
-            ctx.fillRect(c * cellW, r * cellH, cellW - 1, cellH - 1);
-
-            // 数值标注 (小字)
-            if (val > 200) {
-                ctx.fillStyle = norm > 0.5 ? '#fff' : '#aaa';
-                ctx.font = '10px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText(val.toFixed(0), c * cellW + cellW / 2, r * cellH + cellH / 2 + 4);
+            if (val > 2000) {
+                const x = c * cellW + cellW / 2, y = r * cellH + cellH / 2;
+                ctx.strokeStyle = 'rgba(255,255,255,.9)';
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([3, 2]);
+                ctx.strokeRect(c * cellW + 2, r * cellH + 2, cellW - 4, cellH - 4);
+                ctx.setLineDash([]);
+                ctx.fillStyle = '#fff';
+                ctx.fillText(val.toFixed(0), x, y + 4);
             }
         }
     }
 }
 
-function pressureColor(norm) {
-    // 0=蓝(低压) → 0.5=绿(中压) → 1.0=红(高压)
-    let r, g, b;
-    if (norm < 0.05) {
-        return '#111';  // 几乎无压力
-    } else if (norm < 0.5) {
-        const t = norm / 0.5;
-        r = Math.round(0);
-        g = Math.round(80 + t * 175);
-        b = Math.round(200 * (1 - t));
-    } else {
-        const t = (norm - 0.5) / 0.5;
-        r = Math.round(50 + t * 205);
-        g = Math.round(255 * (1 - t));
-        b = 0;
+// Google Turbo 色带 (科研级热力配色); 近零压力显示深底色
+const TURBO_ANCHORS = [
+    [0.00, 15, 18, 26], [0.10, 60, 60, 134], [0.125, 70, 107, 227], [0.25, 40, 170, 225],
+    [0.375, 26, 228, 182], [0.50, 96, 247, 97], [0.625, 180, 238, 38],
+    [0.75, 238, 190, 30], [0.875, 251, 112, 26], [1.00, 202, 50, 32],
+];
+function turboColor(norm) {
+    if (norm < 0.03) return [13, 15, 20];      // 空床区: 深色
+    for (let i = 1; i < TURBO_ANCHORS.length; i++) {
+        const [t1, r1, g1, b1] = TURBO_ANCHORS[i - 1];
+        const [t2, r2, g2, b2] = TURBO_ANCHORS[i];
+        if (norm <= t2) {
+            const t = (norm - t1) / (t2 - t1);
+            return [Math.round(r1 + (r2 - r1) * t), Math.round(g1 + (g2 - g1) * t), Math.round(b1 + (b2 - b1) * t)];
+        }
     }
-    return `rgb(${r},${g},${b})`;
+    return [202, 50, 32];
 }
 
 async function loadPressureData(patientId) {
