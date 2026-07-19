@@ -1,84 +1,99 @@
 /**
- * 智能护理病床 - 鸿蒙APP HTTP 网络请求服务
- *
- * 封装 @ohos.net.http，统一处理:
- *   - JWT Bearer Token 自动注入
- *   - JSON 序列化/反序列化
- *   - 错误处理 + 超时
- *   - 日志
+ * 智能护理病床 - 鸿蒙APP HTTP 网络请求服务 (ArkTS Strict Mode)
  */
 import { http } from '@kit.NetworkKit';
 import { SERVER_BASE_URL, PI_BASE_URL } from './Constants';
 
-// ─── JWT Token 存储 (内存级, 重启后需重新登录) ───
+// ─── JWT Token 存储 ───
 let _jwtToken: string = '';
 
-export function setToken(token: string): void {
-  _jwtToken = token;
+export function setToken(token: string): void { _jwtToken = token; }
+export function getToken(): string { return _jwtToken; }
+export function clearToken(): void { _jwtToken = ''; }
+export function isLoggedIn(): boolean { return _jwtToken.length > 0; }
+
+// ─── 请求配置类 ───
+export class RequestOptions {
+  method: http.RequestMethod = http.RequestMethod.GET;
+  body: string = '';
+  timeout: number = 15000;
+  baseUrl: string = SERVER_BASE_URL;
+  noAuth: boolean = false;
 }
 
-export function getToken(): string {
-  return _jwtToken;
+// ─── 登录结果类 ───
+export class LoginUser {
+  id: number = 0;
+  username: string = '';
+  role: string = '';
+  real_name: string = '';
 }
 
-export function clearToken(): void {
-  _jwtToken = '';
+export class LoginResult {
+  token: string = '';
+  user: LoginUser = new LoginUser();
 }
 
-export function isLoggedIn(): boolean {
-  return _jwtToken.length > 0;
+// ─── 通用请求体类 ───
+export class RequestBody {
+  action: string = '';
+  params: string = '';
+  text: string = '';
+  username: string = '';
+  password: string = '';
+  patient_id: number = 0;
+  question: string = '';
+  status: string = '';
+  room: string = '';
+}
+
+// ─── 通用响应类 ───
+export class SimpleResponse {
+  status: string = '';
+  message: string = '';
+}
+
+export class NlcResponse {
+  action: string = '';
+  params: string = '';
+  response: string = '';
+  executed: boolean = false;
+}
+
+export class ConsultResponse {
+  agent: string = '';
+  agent_icon: string = '';
+  response: string = '';
+  patient_name: string = '';
 }
 
 // ─── 通用 HTTP 请求 ───
-
-interface RequestOptions {
-  method?: http.RequestMethod;
-  body?: object;
-  timeout?: number;        // ms
-  baseUrl?: string;        // 默认 SERVER_BASE_URL
-  noAuth?: boolean;        // 跳过JWT
-}
-
-export async function apiRequest<T>(path: string, options?: RequestOptions): Promise<T> {
-  const method = options?.method ?? http.RequestMethod.GET;
-  const baseUrl = options?.baseUrl ?? SERVER_BASE_URL;
-  const timeout = options?.timeout ?? 15000;
-  const url = baseUrl + path;
-
+export async function apiRequest(path: string, options: RequestOptions): Promise<string> {
+  const url = options.baseUrl + path;
   const httpRequest = http.createHttp();
 
-  // 构建 headers
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
-  if (!options?.noAuth && _jwtToken) {
+  if (!options.noAuth && _jwtToken.length > 0) {
     headers['Authorization'] = `Bearer ${_jwtToken}`;
   }
 
   try {
     const response = await httpRequest.request(url, {
-      method: method,
+      method: options.method,
       header: headers,
-      extraData: options?.body ? JSON.stringify(options.body) : undefined,
-      connectTimeout: timeout,
-      readTimeout: timeout,
+      extraData: options.body.length > 0 ? options.body : undefined,
+      connectTimeout: options.timeout,
+      readTimeout: options.timeout,
     });
 
-    // HTTP 状态码检查
     const code = response.responseCode;
     if (code < 200 || code >= 300) {
-      let errMsg = `HTTP ${code}`;
-      try {
-        const errBody = JSON.parse(response.result as string);
-        errMsg = errBody.error || errMsg;
-      } catch (e) { /* ignore parse error */ }
-      throw new Error(errMsg);
+      throw new Error(`HTTP ${code}`);
     }
 
-    // 解析 JSON
-    const data = JSON.parse(response.result as string) as T;
-    return data;
-
+    return response.result as string;
   } finally {
     httpRequest.destroy();
   }
@@ -86,47 +101,50 @@ export async function apiRequest<T>(path: string, options?: RequestOptions): Pro
 
 // ─── 便捷方法 ───
 
-export async function apiGet<T>(path: string): Promise<T> {
-  return apiRequest<T>(path, { method: http.RequestMethod.GET });
+export async function apiGet(path: string): Promise<string> {
+  const opts = new RequestOptions();
+  opts.method = http.RequestMethod.GET;
+  return apiRequest(path, opts);
 }
 
-export async function apiPost<T>(path: string, body: object): Promise<T> {
-  return apiRequest<T>(path, { method: http.RequestMethod.POST, body });
+export async function apiPost(path: string, body: string): Promise<string> {
+  const opts = new RequestOptions();
+  opts.method = http.RequestMethod.POST;
+  opts.body = body;
+  return apiRequest(path, opts);
 }
 
-export async function apiPut<T>(path: string, body: object): Promise<T> {
-  return apiRequest<T>(path, { method: http.RequestMethod.PUT, body });
+export async function apiPut(path: string, body: string): Promise<string> {
+  const opts = new RequestOptions();
+  opts.method = http.RequestMethod.PUT;
+  opts.body = body;
+  return apiRequest(path, opts);
 }
 
-// ─── 树莓派直连请求 (不带JWT, 短超时) ───
-export async function piRequest<T>(path: string, body?: object): Promise<T> {
-  return apiRequest<T>(path, {
-    method: body ? http.RequestMethod.POST : http.RequestMethod.GET,
-    body,
-    baseUrl: PI_BASE_URL,
-    noAuth: true,
-    timeout: 5000,
-  });
+// ─── 树莓派直连请求 ───
+export async function piRequest(path: string, body: string): Promise<string> {
+  const opts = new RequestOptions();
+  opts.method = http.RequestMethod.POST;
+  opts.body = body;
+  opts.baseUrl = PI_BASE_URL;
+  opts.noAuth = true;
+  opts.timeout = 5000;
+  return apiRequest(path, opts);
 }
 
 // ─── 登录 ───
-
-interface LoginResult {
-  token: string;
-  user: {
-    id: number;
-    username: string;
-    role: string;
-    real_name: string;
-  };
-}
-
 export async function login(username: string, password: string): Promise<LoginResult> {
-  const result = await apiRequest<LoginResult>('/api/auth/login', {
-    method: http.RequestMethod.POST,
-    body: { username, password },
-    noAuth: true,
-  });
+  const bodyObj = new RequestBody();
+  bodyObj.username = username;
+  bodyObj.password = password;
+
+  const opts = new RequestOptions();
+  opts.method = http.RequestMethod.POST;
+  opts.body = JSON.stringify(bodyObj);
+  opts.noAuth = true;
+
+  const raw = await apiRequest('/api/auth/login', opts);
+  const result: LoginResult = JSON.parse(raw) as LoginResult;
   setToken(result.token);
   return result;
 }

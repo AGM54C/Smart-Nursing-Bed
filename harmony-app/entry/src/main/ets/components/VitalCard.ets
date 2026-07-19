@@ -1,8 +1,8 @@
 /**
- * VitalCard - 体征数据卡片组件
+ * VitalCard - 体征数据卡片 (医疗监护风格)
  *
- * 显示单个体征指标 (心率/血压/血氧/血糖/体温/睡姿)
- * 根据数值自动变色: 绿色=正常, 橙色=警告, 红色=危急
+ * 模仿飞利浦IntelliVue/迈瑞监护仪的数值展示:
+ *   大号数值 + 小号标签 + 状态指示条
  */
 import { Colors } from '../common/Constants';
 
@@ -12,67 +12,67 @@ export struct VitalCard {
   @Prop icon: string = '';
   @Prop value: string = '—';
   @Prop unit: string = '';
-  @Prop level: string = 'normal';   // normal | warning | critical
+  @Prop level: string = 'normal';
   @Prop trend: string = '稳定';
 
-  private getColor(): string {
-    switch (this.level) {
-      case 'critical': return Colors.DANGER;
-      case 'warning': return Colors.WARNING;
-      default: return Colors.TEAL_500;
-    }
+  private getAccentColor(): string {
+    if (this.level === 'critical') return '#FF3B5C';
+    if (this.level === 'warning') return '#FF9F0A';
+    return '#34C759';
   }
 
   private getBgColor(): string {
-    switch (this.level) {
-      case 'critical': return '#2A1525';
-      case 'warning': return '#2A2215';
-      default: return Colors.BG_CARD;
-    }
-  }
-
-  private getTrendIcon(): string {
-    if (this.trend.includes('↑') || this.trend.includes('升')) return '↑';
-    if (this.trend.includes('↓') || this.trend.includes('降')) return '↓';
-    return '—';
+    if (this.level === 'critical') return '#1A0A10';
+    if (this.level === 'warning') return '#1A1408';
+    return '#0D1A14';
   }
 
   build() {
     Column() {
-      // 标签行
+      // 顶部: 标签 + 状态条
       Row() {
-        Text(this.icon)
-          .fontSize(14)
-        Text(' ' + this.label)
-          .fontSize(13)
-          .fontColor(Colors.TEXT_SECONDARY)
+        // 状态指示竖条
+        Column()
+          .width(3)
+          .height(14)
+          .backgroundColor(this.getAccentColor())
+          .borderRadius(2)
+
+        Text(this.label)
+          .fontSize(11)
           .fontWeight(500)
+          .fontColor('#8E8E93')
+          .margin({ left: 6 })
+          .letterSpacing(0.5)
+
+        Blank()
+
+        Text(this.unit)
+          .fontSize(10)
+          .fontColor('#636366')
       }
       .width('100%')
-      .justifyContent(FlexAlign.Start)
+      .alignItems(VerticalAlign.Center)
 
-      // 数值 (大字)
+      // 核心数值 (大号)
       Text(this.value)
-        .fontSize(32)
+        .fontSize(36)
         .fontWeight(700)
-        .fontColor(this.getColor())
-        .margin({ top: 8, bottom: 4 })
-
-      // 单位
-      Text(this.unit)
-        .fontSize(12)
-        .fontColor(Colors.TEXT_MUTED)
+        .fontColor(this.getAccentColor())
+        .margin({ top: 6, bottom: 2 })
+        .fontFamily('HarmonyOS Sans')
 
       // 趋势
-      Text(`${this.getTrendIcon()} ${this.trend}`)
-        .fontSize(11)
-        .fontColor(Colors.TEXT_MUTED)
-        .margin({ top: 6 })
+      Text(this.trend)
+        .fontSize(10)
+        .fontColor('#636366')
     }
     .width('100%')
-    .padding(16)
+    .padding({ left: 14, right: 14, top: 12, bottom: 10 })
     .backgroundColor(this.getBgColor())
-    .borderRadius(16)
+    .borderRadius(12)
+    .borderWidth(0.5)
+    .borderColor(this.getAccentColor() + '25')
     .alignItems(HorizontalAlign.Start)
   }
 }

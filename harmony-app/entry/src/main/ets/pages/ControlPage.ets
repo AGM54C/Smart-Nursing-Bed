@@ -1,13 +1,7 @@
 /**
- * ControlPage - 远程控制面板
- *
- * 通过树莓派Flask API直连控制:
- *   - 病床升降 (电动推杆)
- *   - 自主导航 (寻房)
- *   - 气囊控制 (充气/放气/减压)
- *   - NLC语音指令 (自然语言控制)
+ * ControlPage - 设备控制面板 (临床风格)
  */
-import { piRequest } from '../common/ApiService';
+import { piRequest, SimpleResponse, NlcResponse, RequestBody } from '../common/ApiService';
 import { API, Colors } from '../common/Constants';
 
 @Component
@@ -18,16 +12,23 @@ export struct ControlPage {
   @State lastAction: string = '';
   @State piConnected: boolean = true;
 
-  private async sendCommand(action: string, params?: object): Promise<void> {
+  private async sendCommand(action: string, room: string): Promise<void> {
     this.isExecuting = true;
     this.lastAction = action;
     try {
-      const body = { action, params: params || {} };
-      const result = await piRequest<{ status: string; message: string }>(API.PI_REMOTE, body);
-      this.lastAction = `✅ ${action}: ${result.message || '已执行'}`;
+      const bodyObj = new RequestBody();
+      bodyObj.action = action;
+      if (room.length > 0) {
+        bodyObj.room = room;
+      }
+      const bodyStr = JSON.stringify(bodyObj);
+      const raw = await piRequest(API.PI_REMOTE, bodyStr);
+      const result: SimpleResponse = JSON.parse(raw) as SimpleResponse;
+      const msg = result.message.length > 0 ? result.message : '已执行';
+      this.lastAction = `${action}: ${msg}`;
       this.piConnected = true;
     } catch (e) {
-      this.lastAction = `❌ ${action}: ${(e as Error).message}`;
+      this.lastAction = `${action}: ${(e as Error).message}`;
       this.piConnected = false;
     }
     this.isExecuting = false;
@@ -35,20 +36,20 @@ export struct ControlPage {
 
   private async sendNLC(): Promise<void> {
     const text = this.nlcInput.trim();
-    if (!text) return;
+    if (text.length === 0) return;
     this.isExecuting = true;
     this.nlcResult = '解析中...';
     try {
-      const result = await piRequest<{
-        action: string;
-        params: object;
-        response: string;
-        executed: boolean;
-      }>(API.PI_NLC, { text });
-      this.nlcResult = `${result.executed ? '✅' : '⚠️'} ${result.response || result.action}`;
+      const nlcBody = new RequestBody();
+      nlcBody.text = text;
+      const bodyStr = JSON.stringify(nlcBody);
+      const raw = await piRequest(API.PI_NLC, bodyStr);
+      const result: NlcResponse = JSON.parse(raw) as NlcResponse;
+      const msg = result.response.length > 0 ? result.response : result.action;
+      this.nlcResult = msg;
       this.nlcInput = '';
     } catch (e) {
-      this.nlcResult = `❌ ${(e as Error).message}`;
+      this.nlcResult = `错误: ${(e as Error).message}`;
     }
     this.isExecuting = false;
   }
@@ -56,157 +57,181 @@ export struct ControlPage {
   build() {
     Scroll() {
       Column() {
-        // ═══ 标题 ═══
+        // ═══ 顶栏 ═══
         Row() {
-          Text('🎮 病床远程控制')
-            .fontSize(20)
-            .fontWeight(700)
-            .fontColor(Colors.TEXT_PRIMARY)
+          Column()
+            .width(3)
+            .height(16)
+            .backgroundColor(this.piConnected ? '#34C759' : '#FF3B5C')
+            .borderRadius(2)
+          Text('设备控制')
+            .fontSize(16)
+            .fontWeight(600)
+            .fontColor('#E5E5EA')
+            .margin({ left: 8 })
+
+          Blank()
 
           Row() {
             Circle()
-              .width(8)
-              .height(8)
-              .fill(this.piConnected ? Colors.SUCCESS : Colors.DANGER)
-            Text(this.piConnected ? '树莓派在线' : '离线')
+              .width(6)
+              .height(6)
+              .fill(this.piConnected ? '#34C759' : '#FF3B5C')
+            Text(this.piConnected ? '设备在线' : '连接断开')
               .fontSize(11)
-              .fontColor(this.piConnected ? Colors.SUCCESS : Colors.DANGER)
+              .fontColor(this.piConnected ? '#34C759' : '#FF3B5C')
               .margin({ left: 4 })
           }
         }
         .width('100%')
-        .justifyContent(FlexAlign.SpaceBetween)
+        .alignItems(VerticalAlign.Center)
 
-        // ═══ 病床升降 ═══
-        this.SectionTitle('🛏️ 病床升降')
-        Row({ space: 12 }) {
-          this.ControlButton('↑ 抬靠背', Colors.TEAL_600, () => this.sendCommand('raise_bed'))
-          this.ControlButton('↓ 降靠背', Colors.BG_SURFACE, () => this.sendCommand('lower_bed'))
-        }
-        .width('100%')
-
-        // ═══ 自主导航 ═══
-        this.SectionTitle('🗺️ 自主导航')
+        // ═══ 病床控制 ═══
+        this.SectionTitle('病床升降')
         Row({ space: 10 }) {
-          this.ControlButton('301房', Colors.INFO + 'CC', () => this.sendCommand('navigate', { room: '301' }))
-          this.ControlButton('302房', Colors.INFO + 'CC', () => this.sendCommand('navigate', { room: '302' }))
-          this.ControlButton('303房', Colors.INFO + 'CC', () => this.sendCommand('navigate', { room: '303' }))
+          this.ControlButton('抬升靠背', '#007AFF', () => this.sendCommand('raise_bed', ''))
+          this.ControlButton('降低靠背', '#1C1C1E', () => this.sendCommand('lower_bed', ''))
         }
         .width('100%')
 
-        Row({ space: 12 }) {
-          this.ControlButton('⏹ 停止', Colors.DANGER + 'CC', () => this.sendCommand('stop_nav'))
-          this.ControlButton('🏠 返回', Colors.WARNING + 'CC', () => this.sendCommand('return_home'))
+        // ═══ 导航 ═══
+        this.SectionTitle('自主导航')
+        Row({ space: 8 }) {
+          this.ControlButton('301房', '#0A3A6B', () => this.sendCommand('navigate', '301'))
+          this.ControlButton('302房', '#0A3A6B', () => this.sendCommand('navigate', '302'))
+          this.ControlButton('303房', '#0A3A6B', () => this.sendCommand('navigate', '303'))
+        }
+        .width('100%')
+
+        Row({ space: 10 }) {
+          this.ControlButton('急停', '#4A1020', () => this.sendCommand('stop_nav', ''))
+          this.ControlButton('返回基站', '#1C1C1E', () => this.sendCommand('return_home', ''))
         }
         .width('100%')
         .margin({ top: 8 })
 
-        // ═══ 气囊控制 ═══
-        this.SectionTitle('💨 气囊控制')
-        Row({ space: 10 }) {
-          this.ControlButton('充气', Colors.TEAL_600, () => this.sendCommand('air_inflate'))
-          this.ControlButton('放气', Colors.BG_SURFACE, () => this.sendCommand('air_deflate'))
-          this.ControlButton('自动减压', Colors.AGENT_PRESSURE + 'CC', () => this.sendCommand('air_relief_cycle'))
+        // ═══ 气囊 ═══
+        this.SectionTitle('气囊控制')
+        Row({ space: 8 }) {
+          this.ControlButton('充气', '#007AFF', () => this.sendCommand('air_inflate', ''))
+          this.ControlButton('放气', '#1C1C1E', () => this.sendCommand('air_deflate', ''))
+          this.ControlButton('减压循环', '#0A3A6B', () => this.sendCommand('air_relief_cycle', ''))
         }
         .width('100%')
 
-        // ═══ NLC 语音指令 ═══
-        this.SectionTitle('🎤 自然语言控制 (NLC)')
-        Text('输入自然语言指令，Kimi AI 解析后自动执行')
+        // ═══ 语音指令 ═══
+        this.SectionTitle('自然语言控制')
+        Text('输入自然语言指令，AI解析后自动执行')
           .fontSize(11)
-          .fontColor(Colors.TEXT_MUTED)
+          .fontColor('#48484A')
           .margin({ bottom: 8 })
 
         Row({ space: 8 }) {
           TextInput({
-            placeholder: '例: 把靠背升起来',
+            placeholder: '例: 帮我抬高靠背',
             text: this.nlcInput
           })
             .onChange((v: string) => { this.nlcInput = v; })
             .onSubmit(() => { this.sendNLC(); })
             .layoutWeight(1)
             .height(42)
-            .backgroundColor(Colors.BG_SURFACE)
-            .fontColor(Colors.TEXT_PRIMARY)
-            .placeholderColor(Colors.TEXT_MUTED)
-            .borderRadius(21)
-            .padding({ left: 16, right: 16 })
+            .backgroundColor('#1C1C1E')
+            .fontColor('#E5E5EA')
+            .placeholderColor('#48484A')
+            .borderRadius(10)
+            .padding({ left: 14, right: 14 })
+            .borderWidth(0.5)
+            .borderColor('#2C2C2E')
 
           Button('执行')
             .type(ButtonType.Normal)
             .fontSize(14)
             .height(42)
-            .width(65)
-            .backgroundColor(Colors.TEAL_600)
-            .borderRadius(21)
+            .width(60)
+            .backgroundColor('#007AFF')
+            .borderRadius(10)
             .onClick(() => { this.sendNLC(); })
             .enabled(!this.isExecuting)
         }
         .width('100%')
 
-        // NLC结果
-        if (this.nlcResult) {
+        if (this.nlcResult.length > 0) {
           Text(this.nlcResult)
             .fontSize(13)
-            .fontColor(Colors.TEXT_PRIMARY)
+            .fontColor('#AEAEB2')
             .padding(12)
-            .backgroundColor(Colors.BG_CARD)
-            .borderRadius(10)
+            .backgroundColor('#0D0D11')
+            .borderRadius(8)
             .width('100%')
             .margin({ top: 8 })
+            .borderWidth(0.5)
+            .borderColor('#1C1C1E')
         }
 
-        // ═══ 执行状态 ═══
-        if (this.lastAction) {
+        // ═══ 操作日志 ═══
+        if (this.lastAction.length > 0) {
           Column() {
             Text('最近操作')
               .fontSize(11)
-              .fontColor(Colors.TEXT_MUTED)
+              .fontColor('#48484A')
             Text(this.lastAction)
               .fontSize(13)
-              .fontColor(Colors.TEXT_PRIMARY)
+              .fontColor('#AEAEB2')
               .margin({ top: 4 })
           }
           .width('100%')
-          .padding(14)
-          .backgroundColor(Colors.BG_CARD)
-          .borderRadius(12)
-          .margin({ top: 16 })
+          .padding(12)
+          .backgroundColor('#0D0D11')
+          .borderRadius(10)
+          .margin({ top: 14 })
           .alignItems(HorizontalAlign.Start)
+          .borderWidth(0.5)
+          .borderColor('#1C1C1E')
         }
 
         Blank().height(30)
       }
-      .padding(16)
+      .padding(14)
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(Colors.BG_DARK)
+    .backgroundColor('#000000')
     .scrollBar(BarState.Off)
   }
 
   @Builder
   SectionTitle(title: string) {
-    Text(title)
-      .fontSize(15)
-      .fontWeight(600)
-      .fontColor(Colors.TEXT_SECONDARY)
-      .margin({ top: 20, bottom: 10 })
-      .width('100%')
+    Row() {
+      Column()
+        .width(2)
+        .height(12)
+        .backgroundColor('#636366')
+        .borderRadius(1)
+      Text(title)
+        .fontSize(13)
+        .fontWeight(600)
+        .fontColor('#8E8E93')
+        .margin({ left: 6 })
+    }
+    .width('100%')
+    .margin({ top: 20, bottom: 10 })
+    .alignItems(VerticalAlign.Center)
   }
 
   @Builder
   ControlButton(label: string, bgColor: string, onClick: () => void) {
     Button(label)
       .type(ButtonType.Normal)
-      .fontSize(14)
+      .fontSize(13)
       .fontWeight(500)
       .height(44)
       .backgroundColor(bgColor)
-      .fontColor(Colors.TEXT_PRIMARY)
-      .borderRadius(12)
+      .fontColor('#E5E5EA')
+      .borderRadius(10)
       .layoutWeight(1)
       .onClick(onClick)
       .enabled(!this.isExecuting)
+      .borderWidth(0.5)
+      .borderColor('#2C2C2E')
   }
 }

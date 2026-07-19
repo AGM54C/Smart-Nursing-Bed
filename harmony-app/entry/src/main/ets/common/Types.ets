@@ -1,128 +1,116 @@
 /**
- * 智能护理病床 - 鸿蒙APP 数据类型定义
- * 与 Express 后端 API 返回的 JSON 结构对齐
+ * 智能护理病床 - 鸿蒙APP 数据类型定义 (ArkTS Strict Mode)
+ * 用 class 代替 interface，避免 object literal / union type 问题
  */
 
-// ─── 认证 ───
-export interface LoginResponse {
-  token: string;
-  user: UserInfo;
-}
-
-export interface UserInfo {
-  id: number;
-  username: string;
-  role: string;       // admin | doctor | patient | family
-  real_name: string;
-  phone: string;
-}
-
 // ─── 患者 ───
-export interface Patient {
-  id: number;
-  name: string;
-  age: number;
-  gender: string;
-  room_number: string;
-  bed_number: string;
-  disease_type: string;
-  disease_detail: string;
-  assigned_agent: string;
-  admission_date: string;
+export class Patient {
+  id: number = 0;
+  name: string = '';
+  age: number = 0;
+  gender: string = '';
+  room_number: string = '';
+  bed_number: string = '';
+  disease_type: string = '';
+  disease_detail: string = '';
+  assigned_agent: string = '';
+  admission_date: string = '';
 }
 
 // ─── 生命体征 ───
-export interface VitalsData {
-  id: number;
-  patient_id: number;
-  heart_rate: number;
-  blood_pressure_sys: number;
-  blood_pressure_dia: number;
-  blood_oxygen: number;
-  blood_glucose: number;
-  temperature: number;
-  sleep_posture: string;
-  fabric_sensor_raw: string;
-  recorded_at: string;
+export class VitalsData {
+  id: number = 0;
+  patient_id: number = 0;
+  heart_rate: number = 0;
+  blood_pressure_sys: number = 0;
+  blood_pressure_dia: number = 0;
+  blood_oxygen: number = 0;
+  blood_glucose: number = 0;
+  temperature: number = 0;
+  sleep_posture: string = '';
+  fabric_sensor_raw: string = '';
+  recorded_at: string = '';
 }
 
 // ─── 告警 ───
-export interface AlertData {
-  id: number;
-  patient_id: number;
-  alert_type: string;        // vital_sign | pressure | fall | custom
-  metric: string;
-  value: number;
-  threshold: number;
-  message: string;
-  status: string;           // active | acknowledged | resolved
-  created_at: string;
+export class AlertData {
+  id: number = 0;
+  patient_id: number = 0;
+  alert_type: string = '';
+  metric: string = '';
+  value: number = 0;
+  threshold: number = 0;
+  message: string = '';
+  status: string = '';
+  created_at: string = '';
 }
 
 // ─── Agent Swarm ───
-export interface SwarmStatus {
-  version: string;
-  architecture: string;
-  framework_ref: string;
-  agents: AgentStatus[];
-  capabilities: Record<string, string>;
-  safety: Record<string, string>;
-  timestamp: string;
+export class SwarmCapabilities {
+  coordinator: string = '';
+  mailbox: string = '';
+  memory: string = '';
+  permission: string = '';
 }
 
-export interface AgentStatus {
-  name: string;
-  display_name: string;
-  icon: string;
-  status: string;
-  priority: number;
-  color: string;
+export class SwarmSafety {
+  L0: string = '';
+  L1: string = '';
+  L2: string = '';
+  L3: string = '';
 }
 
-export interface AgentDetail {
-  name: string;
-  display_name: string;
-  icon: string;
-  priority: number;
-  color: string;
-  query_interval: number;
-  when_to_use: string;
-  triggers: string[];
-  allowed_actions: string[];
-  has_db_config: boolean;
+export class SwarmStatus {
+  version: string = '';
+  architecture: string = '';
+  framework_ref: string = '';
+  agents: AgentStatus[] = [];
+  capabilities: SwarmCapabilities = new SwarmCapabilities();
+  safety: SwarmSafety = new SwarmSafety();
+  timestamp: string = '';
+}
+
+export class AgentStatus {
+  name: string = '';
+  display_name: string = '';
+  icon: string = '';
+  status: string = '';
+  priority: number = 0;
+  color: string = '';
+}
+
+export class AgentDetail {
+  name: string = '';
+  display_name: string = '';
+  icon: string = '';
+  priority: number = 0;
+  color: string = '';
+  query_interval: number = 0;
+  when_to_use: string = '';
+  triggers: string[] = [];
+  allowed_actions: string[] = [];
+  has_db_config: boolean = false;
+}
+
+export class AgentListResponse {
+  total: number = 0;
+  agents: AgentDetail[] = [];
 }
 
 // ─── AI 聊天 ───
-export interface ChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp?: number;
-}
-
-export interface StreamEvent {
-  type: 'meta' | 'delta' | 'error' | 'done';
-  content?: string;
-  agent?: string;
-  icon?: string;
-  message?: string;
+export class ChatMessage {
+  role: string = '';
+  content: string = '';
+  timestamp: number = 0;
 }
 
 // ─── 报告 ───
-export interface Report {
-  id: number;
-  patient_id: number;
-  report_date: string;
-  summary: string;
-  ai_diagnosis: string;
-  rehab_suggestions: string;
-  generated_by: string;
-}
-
-// ─── 体征卡片配置 ───
-export interface VitalCardConfig {
-  label: string;
-  icon: string;
-  unit: string;
-  getValue: (v: VitalsData) => string;
-  getLevel: (v: VitalsData) => 'normal' | 'warning' | 'critical';
+export class Report {
+  id: number = 0;
+  patient_id: number = 0;
+  report_date: string = '';
+  summary: string = '';
+  ai_diagnosis: string = '';
+  rehab_suggestions: string = '';
+  generated_by: string = '';
 }

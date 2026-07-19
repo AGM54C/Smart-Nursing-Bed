@@ -23,3 +23,9 @@ __pycache__/
 tmp_*
 .DS_Store
 .claude/
+
+# HarmonyOS (DevEco 会自动重建这些)
+harmony-app/local.properties
+harmony-app/.idea/
+harmony-app/**/.preview/
+harmony-app/entry/build/

@@ -1,14 +1,8 @@
 /**
- * Index.ets - 鸿蒙APP主入口
+ * Index.ets - 主入口 (临床监护风格)
  *
- * 5个Tab页面:
- *   1. 🫀 监护面板 (DashboardPage)
- *   2. 🤖 Agent Swarm (AgentSwarmPage)
- *   3. 🚨 告警中心 (AlertsPage)
- *   4. 💬 AI聊天 (ChatPage)
- *   5. 🎮 远程控制 (ControlPage)
- *
- * 启动时检查登录状态，未登录则显示登录界面
+ * 底部导航: 监护 | 智能体 | 告警 | 咨询 | 控制
+ * 去掉emoji，纯文字+状态指示
  */
 import { login, isLoggedIn } from '../common/ApiService';
 import { Colors } from '../common/Constants';
@@ -24,7 +18,6 @@ struct Index {
   @State isAuthenticated: boolean = false;
   @State currentTab: number = 0;
 
-  // 登录表单
   @State loginUser: string = 'admin';
   @State loginPass: string = 'admin123';
   @State loginError: string = '';
@@ -35,7 +28,7 @@ struct Index {
   }
 
   private async doLogin(): Promise<void> {
-    if (!this.loginUser.trim() || !this.loginPass.trim()) {
+    if (this.loginUser.trim().length === 0 || this.loginPass.trim().length === 0) {
       this.loginError = '请输入用户名和密码';
       return;
     }
@@ -45,134 +38,158 @@ struct Index {
       await login(this.loginUser, this.loginPass);
       this.isAuthenticated = true;
     } catch (e) {
-      this.loginError = (e as Error).message || '登录失败';
+      this.loginError = (e as Error).message;
     }
     this.isLoggingIn = false;
   }
 
-  // ═══ 登录界面 ═══
+  // ═══ 登录界面 (医疗系统风格) ═══
   @Builder
   LoginView() {
     Column() {
-      Blank().height('15%')
+      Blank().height('18%')
 
-      // Logo
-      Text('🛏️')
-        .fontSize(56)
-      Text('智能护理病床')
-        .fontSize(24)
-        .fontWeight(700)
-        .fontColor(Colors.TEXT_PRIMARY)
-        .margin({ top: 12 })
-      Text('Multi-Agent Nursing Swarm v4.0')
-        .fontSize(12)
-        .fontColor(Colors.TEAL_500)
-        .margin({ top: 6 })
+      // Logo区
+      Column() {
+        Text('+')
+          .fontSize(48)
+          .fontWeight(200)
+          .fontColor('#34C759')
+        Text('智能护理病床监护系统')
+          .fontSize(20)
+          .fontWeight(600)
+          .fontColor('#E5E5EA')
+          .margin({ top: 16 })
+        Text('Smart Nursing Bed Monitoring System')
+          .fontSize(11)
+          .fontColor('#636366')
+          .margin({ top: 6 })
+          .letterSpacing(0.5)
+      }
+      .alignItems(HorizontalAlign.Center)
 
       // 登录表单
       Column({ space: 12 }) {
-        TextInput({ placeholder: '用户名', text: this.loginUser })
+        Text('医护人员登录')
+          .fontSize(13)
+          .fontColor('#8E8E93')
+          .width('100%')
+          .margin({ bottom: 4 })
+
+        TextInput({ placeholder: '工号 / 用户名', text: this.loginUser })
           .onChange((v: string) => { this.loginUser = v; })
-          .height(46)
-          .backgroundColor(Colors.BG_SURFACE)
-          .fontColor(Colors.TEXT_PRIMARY)
-          .placeholderColor(Colors.TEXT_MUTED)
-          .borderRadius(12)
+          .height(48)
+          .backgroundColor('#1C1C1E')
+          .fontColor('#E5E5EA')
+          .placeholderColor('#48484A')
+          .borderRadius(10)
           .padding({ left: 16, right: 16 })
+          .borderWidth(0.5)
+          .borderColor('#2C2C2E')
 
         TextInput({ placeholder: '密码', text: this.loginPass })
           .onChange((v: string) => { this.loginPass = v; })
           .type(InputType.Password)
-          .height(46)
-          .backgroundColor(Colors.BG_SURFACE)
-          .fontColor(Colors.TEXT_PRIMARY)
-          .placeholderColor(Colors.TEXT_MUTED)
-          .borderRadius(12)
+          .height(48)
+          .backgroundColor('#1C1C1E')
+          .fontColor('#E5E5EA')
+          .placeholderColor('#48484A')
+          .borderRadius(10)
           .padding({ left: 16, right: 16 })
+          .borderWidth(0.5)
+          .borderColor('#2C2C2E')
 
-        if (this.loginError) {
+        if (this.loginError.length > 0) {
           Text(this.loginError)
             .fontSize(12)
-            .fontColor(Colors.DANGER)
+            .fontColor('#FF3B5C')
         }
 
-        Button(this.isLoggingIn ? '登录中...' : '登录')
+        Button(this.isLoggingIn ? '验证中...' : '登 录')
           .type(ButtonType.Normal)
           .width('100%')
-          .height(46)
+          .height(48)
           .fontSize(16)
           .fontWeight(600)
-          .backgroundColor(Colors.TEAL_600)
-          .borderRadius(12)
+          .backgroundColor('#007AFF')
+          .borderRadius(10)
           .onClick(() => { this.doLogin(); })
           .enabled(!this.isLoggingIn)
       }
-      .width('80%')
-      .margin({ top: 40 })
+      .width('82%')
+      .margin({ top: 48 })
 
-      // 底部信息
-      Text('华为云 IoTDA × NearLink × HarmonyOS')
-        .fontSize(11)
-        .fontColor(Colors.TEXT_MUTED)
-        .margin({ top: 40 })
+      Blank()
+
+      // 底部
+      Column() {
+        Text('IoT智能护理 · HarmonyOS NEXT')
+          .fontSize(10)
+          .fontColor('#3A3A3C')
+        Text('v4.0')
+          .fontSize(10)
+          .fontColor('#2C2C2E')
+          .margin({ top: 2 })
+      }
+      .margin({ bottom: 30 })
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(Colors.BG_DARK)
+    .backgroundColor('#000000')
     .alignItems(HorizontalAlign.Center)
   }
 
-  // ═══ 主界面 (Tabs) ═══
+  // ═══ 主界面 ═══
   @Builder
   MainView() {
     Tabs({ barPosition: BarPosition.End, index: this.currentTab }) {
-      // Tab 1: 监护面板
       TabContent() {
         DashboardPage()
       }
-      .tabBar(this.TabBarItem(0, '监护', '🫀'))
+      .tabBar(this.TabBarItem(0, '监护'))
 
-      // Tab 2: Agent Swarm
       TabContent() {
         AgentSwarmPage()
       }
-      .tabBar(this.TabBarItem(1, 'Agent', '🤖'))
+      .tabBar(this.TabBarItem(1, '智能体'))
 
-      // Tab 3: 告警
       TabContent() {
         AlertsPage()
       }
-      .tabBar(this.TabBarItem(2, '告警', '🚨'))
+      .tabBar(this.TabBarItem(2, '告警'))
 
-      // Tab 4: AI聊天
       TabContent() {
         ChatPage()
       }
-      .tabBar(this.TabBarItem(3, '聊天', '💬'))
+      .tabBar(this.TabBarItem(3, '咨询'))
 
-      // Tab 5: 控制
       TabContent() {
         ControlPage()
       }
-      .tabBar(this.TabBarItem(4, '控制', '🎮'))
+      .tabBar(this.TabBarItem(4, '控制'))
     }
     .onChange((index: number) => {
       this.currentTab = index;
     })
-    .barBackgroundColor(Colors.BG_CARD)
-    .barHeight(56)
+    .barBackgroundColor('#0C0C0E')
+    .barHeight(50)
   }
 
   @Builder
-  TabBarItem(index: number, label: string, icon: string) {
+  TabBarItem(index: number, label: string) {
     Column() {
-      Text(icon)
-        .fontSize(22)
+      // 选中指示条
+      Column()
+        .width(this.currentTab === index ? 20 : 0)
+        .height(2)
+        .backgroundColor('#007AFF')
+        .borderRadius(1)
+        .margin({ bottom: 4 })
+
       Text(label)
-        .fontSize(10)
-        .fontColor(this.currentTab === index ? Colors.TEAL_500 : Colors.TEXT_MUTED)
+        .fontSize(12)
+        .fontColor(this.currentTab === index ? '#007AFF' : '#636366')
         .fontWeight(this.currentTab === index ? 600 : 400)
-        .margin({ top: 2 })
     }
     .width('100%')
     .height('100%')

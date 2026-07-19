@@ -1,7 +1,5 @@
 /**
- * AgentCard - AI Agent 状态卡片组件
- *
- * 展示单个专科Agent的运行状态、优先级、负责领域
+ * AgentCard - 智能体状态卡片 (临床风格)
  */
 import { Colors } from '../common/Constants';
 
@@ -9,79 +7,68 @@ import { Colors } from '../common/Constants';
 export struct AgentCard {
   @Prop agentName: string = '';
   @Prop displayName: string = '';
-  @Prop icon: string = '🤖';
+  @Prop icon: string = '';
   @Prop priority: number = 0;
   @Prop status: string = 'active';
   @Prop color: string = 'green';
   @Prop whenToUse: string = '';
   @Prop queryInterval: number = 30;
 
-  private getStatusColor(): string {
-    return this.status === 'active' ? Colors.SUCCESS : Colors.TEXT_MUTED;
-  }
-
-  private getAgentColor(): string {
-    switch (this.color) {
-      case 'red': return Colors.AGENT_EMERGENCY;
-      case 'green': return Colors.AGENT_VITALS;
-      case 'blue': return Colors.AGENT_PRESSURE;
-      case 'yellow': return Colors.AGENT_COMPANION;
-      default: return Colors.TEAL_500;
-    }
+  private getAccentColor(): string {
+    if (this.color === 'red') return '#FF3B5C';
+    if (this.color === 'green') return '#34C759';
+    if (this.color === 'blue') return '#007AFF';
+    if (this.color === 'yellow') return '#FF9F0A';
+    return '#34C759';
   }
 
   build() {
     Column() {
-      // 头部: 图标 + 状态灯
+      // 顶部: 状态条 + 状态灯
       Row() {
-        Text(this.icon)
-          .fontSize(28)
+        Column()
+          .width(3)
+          .height(12)
+          .backgroundColor(this.getAccentColor())
+          .borderRadius(2)
+        Text(this.displayName)
+          .fontSize(13)
+          .fontWeight(600)
+          .fontColor('#E5E5EA')
+          .margin({ left: 6 })
 
-        // 状态指示灯
+        Blank()
+
         Circle()
-          .width(8)
-          .height(8)
-          .fill(this.getStatusColor())
-          .margin({ left: 8 })
+          .width(6)
+          .height(6)
+          .fill(this.status === 'active' ? '#34C759' : '#48484A')
       }
       .width('100%')
-      .justifyContent(FlexAlign.SpaceBetween)
+      .alignItems(VerticalAlign.Center)
 
-      // Agent名称
-      Text(this.displayName)
-        .fontSize(14)
-        .fontWeight(600)
-        .fontColor(Colors.TEXT_PRIMARY)
-        .margin({ top: 10 })
-
-      // 优先级
-      Text(`优先级: ${this.priority}`)
-        .fontSize(11)
-        .fontColor(this.getAgentColor())
-        .margin({ top: 4 })
-
-      // 查询间隔
-      Text(`${this.queryInterval}s 轮询`)
+      // 优先级 + 间隔
+      Text(`P${this.priority} · ${this.queryInterval}s`)
         .fontSize(10)
-        .fontColor(Colors.TEXT_MUTED)
-        .margin({ top: 2 })
+        .fontColor(this.getAccentColor())
+        .margin({ top: 8 })
 
-      // 职责描述
-      if (this.whenToUse) {
+      // 描述
+      if (this.whenToUse.length > 0) {
         Text(this.whenToUse)
           .fontSize(10)
-          .fontColor(Colors.TEXT_SECONDARY)
-          .margin({ top: 8 })
+          .fontColor('#636366')
+          .margin({ top: 6 })
           .maxLines(2)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
       }
     }
     .width('100%')
-    .padding(14)
-    .backgroundColor(Colors.BG_CARD)
-    .borderRadius(14)
-    .borderWidth(1)
-    .borderColor(this.getAgentColor() + '30')  // 30% opacity border
+    .padding(12)
+    .backgroundColor('#0D0D11')
+    .borderRadius(10)
+    .borderWidth(0.5)
+    .borderColor(this.getAccentColor() + '25')
     .alignItems(HorizontalAlign.Start)
   }
 }

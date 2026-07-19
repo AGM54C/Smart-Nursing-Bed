@@ -602,6 +602,26 @@ python3 camera_stream.py                      # 4. 浏览器 http://<RPi-IP>:808
 
 ---
 
+## 📱 HarmonyOS 手机 App（harmony-app/）
+
+医护/家属随身端，ArkTS 严格模式开发，完整 DevEco 工程随仓库分发（`oh_modules` 等由 IDE 自动重建）。
+
+| 页面 | 功能 |
+|---|---|
+| DashboardPage | 实时体征仪表盘（心率/血氧/体温/血压/睡姿，2s 轮询） |
+| AgentSwarmPage | 5 专科智能体总览与协同状态 |
+| ChatPage | AI 护理咨询对话（走云端统一 LLM 网关） |
+| AlertsPage | 告警列表与确认 |
+| ControlPage | 床体控制（靠背角度/气囊减压/病房导航） |
+
+**构建运行**：
+1. DevEco Studio（HarmonyOS SDK **6.0.2(22)**，`bundleName: com.smartnursing.bed`）打开 `harmony-app/` → 首次自动同步依赖
+2. 服务器地址在 [harmony-app/entry/src/main/ets/common/Constants.ets](harmony-app/entry/src/main/ets/common/Constants.ets)：`SERVER_BASE_URL` 指向云端 ECS，`PI_BASE_URL` 指向局域网树莓派（NLC 语音直控用）
+3. File → Project Structure → Signing Configs 勾选自动签名 → 真机运行
+4. 登录账号与 Web 端通用（见「👤 演示账号」）
+
+---
+
 ## 📁 项目结构
 
 ```
@@ -619,6 +639,9 @@ smart-nursing-bed/
 ├── config/                     # ecosystem.config.js(PM2) + nginx.conf
 ├── DEPLOYMENT.md               # 六阶段部署细则(电源→云→ESP32→树莓派→组装→联调)
 ├── TUYA_MIGRATION.md           # 涂鸦云迁移方案与物模型 DP 全表
+├── docs/                       # 设计文档 + 创意表(涂鸦赛道)
+├── scripts/                    # 运维脚本: 智能体提示词导出/LLM网关自测/涂鸦迁移体检/讯飞ASR
+├── harmony-app/                # 📱 HarmonyOS App(DevEco 工程, ArkTS, 见上节)
 └── hardware/
     ├── README.md               # 完整 BOM + 接线图 + 电源详解
     ├── config.py               # ⭐ 树莓派全局配置(GPIO/MQTT/云端/涂鸦三元组)
