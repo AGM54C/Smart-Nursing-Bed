@@ -2515,4 +2515,100 @@ textarea {
 }
 .animate-in {
     animation: fade-in-up 0.5s var(--ease) both;
-}
+}
+/* ══════════════════════════════════════════════════════════
+   织物压力热力图卡片 — 画布 + 实时读数面板 (双列布局)
+   ══════════════════════════════════════════════════════════ */
+.heatmap-layout {
+    display: grid;
+    grid-template-columns: minmax(220px, 300px) 1fr;
+    gap: 22px;
+    align-items: start;
+}
+.heatmap-canvas-col { min-width: 0; }
+#pressureHeatmap {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 12px;
+    background: #0d0f14;
+    display: block;
+    box-shadow: 0 4px 18px rgba(13,15,20,.18);
+}
+.heatmap-legend {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+    font-size: .75rem;
+    color: var(--ash);
+}
+.heatmap-readings {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+}
+.hm-stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+.hm-stat {
+    background: var(--snow);
+    border: 1px solid var(--cloud);
+    border-radius: var(--r-lg);
+    padding: 12px 14px;
+    text-align: center;
+    transition: border-color .25s var(--ease), transform .25s var(--ease);
+}
+.hm-stat:hover { border-color: var(--teal-400); transform: translateY(-2px); }
+.hm-stat-v {
+    font-family: var(--mono);
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1.1;
+}
+.hm-stat-v small { font-size: .78rem; color: var(--ash); font-weight: 500; }
+.hm-stat-l { font-size: .72rem; color: var(--ash); margin-top: 4px; }
+
+/* 呼吸波形 — 边缘 FFT 提取 */
+.hm-resp {
+    background: linear-gradient(135deg, var(--blue-50) 0%, var(--teal-50) 100%);
+    border: 1px solid var(--blue-100);
+    border-radius: var(--r-lg);
+    padding: 12px 14px;
+}
+.hm-resp-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    font-size: .8rem;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 6px;
+    white-space: nowrap;
+}
+.hm-resp-val { font-family: var(--mono); color: var(--blue-500); font-size: 1.05rem; white-space: nowrap; }
+.hm-resp-val small { font-size: .66rem; color: var(--ash); margin-left: 2px; font-family: var(--font); }
+#respWave { width: 100%; height: 56px; display: block; }
+
+/* 睡姿 — 边缘 AI 双模型 */
+.hm-posture {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--snow);
+    border: 1px solid var(--cloud);
+    border-radius: var(--r-lg);
+    padding: 12px 14px;
+}
+.hm-posture-icon { font-size: 1.9rem; line-height: 1; }
+.hm-posture-txt { flex: 1; min-width: 0; }
+.hm-posture-name { font-size: 1.05rem; font-weight: 700; color: var(--ink); }
+.hm-posture-sub { font-size: .7rem; color: var(--ash); margin-top: 2px; }
+
+@media (max-width: 900px) {
+    .heatmap-layout { grid-template-columns: 1fr; }
+    .heatmap-canvas-col { max-width: 300px; margin: 0 auto; }
+}

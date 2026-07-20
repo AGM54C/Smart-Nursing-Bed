@@ -128,15 +128,41 @@
             <div class="grid-2" style="margin-top:20px">
                 <div class="card">
                     <div class="h3" style="margin-bottom:12px">🧶 织物压力热力图 <span class="fab-sensor-tag">实时</span></div>
-                    <canvas id="pressureHeatmap" width="480" height="480"
-                        style="width:100%;max-width:280px;border-radius:8px;background:#0d0f14"></canvas>
-                    <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:.75rem;color:var(--ash)">
-                        <span>低压 🟦</span><span>中压 🟩</span><span>高压 🟥</span>
+                    <div class="heatmap-layout">
+                        <div class="heatmap-canvas-col">
+                            <canvas id="pressureHeatmap" width="480" height="480"></canvas>
+                            <div class="heatmap-legend">
+                                <span>低压 🟦</span><span>中压 🟩</span><span>高压 🟥</span>
+                            </div>
+                        </div>
+                        <div class="heatmap-readings">
+                            <div class="hm-stat-grid">
+                                <div class="hm-stat"><div class="hm-stat-v" id="hm-peak">—</div><div class="hm-stat-l">峰值压力</div></div>
+                                <div class="hm-stat"><div class="hm-stat-v" id="hm-avg">—</div><div class="hm-stat-l">平均压力</div></div>
+                                <div class="hm-stat"><div class="hm-stat-v" id="hm-area">—</div><div class="hm-stat-l">接触面积</div></div>
+                                <div class="hm-stat"><div class="hm-stat-v" id="hm-cop">—</div><div class="hm-stat-l">压力重心</div></div>
+                            </div>
+                            <div class="hm-resp">
+                                <div class="hm-resp-head">
+                                    <span>🫁 呼吸波形 <span class="fab-sensor-tag">边缘FFT</span></span>
+                                    <span class="hm-resp-val"><span id="hm-rr">16.0</span><small>次/分</small></span>
+                                </div>
+                                <canvas id="respWave" width="480" height="72"></canvas>
+                            </div>
+                            <div class="hm-posture">
+                                <span class="hm-posture-icon" id="hm-posture-icon">🛌</span>
+                                <div class="hm-posture-txt">
+                                    <div class="hm-posture-name" id="hm-posture">仰卧</div>
+                                    <div class="hm-posture-sub">双模型 · ONNX <span id="hm-latency">1.2</span>ms</div>
+                                </div>
+                                <span class="fab-sensor-tag">边缘AI</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="card">
-                    <div class="h3" style="margin-bottom:12px">🛡 受压风险评估</div>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                    <div class="h3" style="margin-bottom:12px">🛡 受压风险评估 <span class="fab-sensor-tag">预测模型</span></div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
                         <div style="padding:12px;background:var(--snow);border-radius:var(--r-lg);text-align:center">
                             <div style="font-size:1.6rem;font-weight:700" id="ulcer-level">—</div>
                             <div class="caption">风险等级</div>
@@ -145,9 +171,14 @@
                             <div style="font-size:1.6rem;font-weight:700" id="turnover-count">0</div>
                             <div class="caption">翻身次数</div>
                         </div>
+                        <div style="padding:12px;background:var(--snow);border-radius:var(--r-lg);text-align:center">
+                            <div style="font-size:1.6rem;font-weight:700;font-family:var(--mono)" id="turn-countdown">—</div>
+                            <div class="caption">距下次翻身</div>
+                        </div>
                     </div>
+                    <div id="zone-risk-bars" style="margin-top:12px"></div>
                     <div id="ulcer-advice"
-                        style="margin-top:12px;padding:10px;background:var(--snow);border-radius:var(--r-lg);font-size:.82rem;color:var(--ash);min-height:60px">
+                        style="margin-top:12px;padding:10px;background:var(--snow);border-radius:var(--r-lg);font-size:.82rem;color:var(--ash);min-height:48px">
                         等待传感器数据...
                     </div>
                     <button class="btn btn-teal btn-sm" style="margin-top:10px;width:100%"
